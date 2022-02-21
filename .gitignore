@@ -1,0 +1,8 @@
+data/
+venv/
+.RData
+.Rhistory
+.ipynb_checkpoints/
+.Rproj.user
+__pycache__/
+*.egg-info/
