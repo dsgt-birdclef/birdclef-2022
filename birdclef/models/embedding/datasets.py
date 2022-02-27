@@ -9,44 +9,39 @@ from torchvision import transforms
 
 
 class TileTripletsDataset(Dataset):
-    def __init__(self, tile_dir, transform=None, n_triplets=None, pairs_only=True):
+    def __init__(self, meta_df, tile_dir, transform=None):
+        self.df = meta_df
         self.tile_dir = Path(tile_dir)
-
-        self.tile_files = list(
-            set([".".join(p.name.split(".")[:2]) for p in self.tile_dir.glob("*.ogg")])
-        )
         self.transform = transform
-        self.n_triplets = n_triplets
-        self.pairs_only = pairs_only
 
     def __len__(self):
-        if self.n_triplets:
-            return self.n_triplets
-        else:
-            return len(self.tile_files)
+        return self.df.shape[0]
+
+    def _load_audio(self, row, col, duration=5):
+        offset = row[f"{col}_loc"]
+        filename = self.tile_dir / row[col]
+        # -1 is when the audio file is shorter than our 5 second window
+        if offset > 0:
+            # we know we have enough room to read near the ends, so we can shift
+            # it by some amount
+            # this is not exactly even, but it's good enough for me right now
+            offset = max(offset + (np.random.rand() - 0.5) * duration, 0)
+        y, sr = librosa.load(filename, offset=offset, duration=duration)
+
+        # ensure these are audio samples
+        length = sr * duration
+        return np.resize(np.moveaxis(y, -1, 0), length)
 
     def __getitem__(self, idx):
-        name = self.tile_files[idx]
-        a, _ = librosa.load(self.tile_dir / f"{name}.0.ogg")
-        n, _ = librosa.load(self.tile_dir / f"{name}.1.ogg")
-        if self.pairs_only:
-            distant = np.random.choice(self.tile_files)
-            d_idx = np.random.randint(0, 2)
-            d, _ = librosa.load(self.tile_dir / f"{distant}.{d_idx}.ogg")
-        else:
-            raise NotImplementedError("triples do not contain a distant pair")
-
-        # TODO: do not assume audio is this length...
-        # ensure these are all the same
-        sample_rate = 22050
-        seconds = 5
-        length = sample_rate * seconds
-
-        a = np.resize(np.moveaxis(a, -1, 0), length)
-        n = np.resize(np.moveaxis(n, -1, 0), length)
-        d = np.resize(np.moveaxis(d, -1, 0), length)
-
-        sample = {"anchor": a, "neighbor": n, "distant": d}
+        try:
+            row = self.df.iloc[idx]
+        except:
+            raise KeyError(idx)
+        sample = {
+            "anchor": self._load_audio(row, "a"),
+            "neighbor": self._load_audio(row, "b"),
+            "distant": self._load_audio(row, "c"),
+        }
         if self.transform:
             sample = self.transform(sample)
         return sample
@@ -74,12 +69,11 @@ class ToFloatTensor(object):
 
 
 def triplet_dataloader(
-    tile_dir,
-    batch_size=4,
-    shuffle=True,
-    num_workers=4,
-    n_triplets=None,
-    pairs_only=True,
+    meta_df,
+    tile_dir: Path,
+    batch_size: int = 4,
+    shuffle: bool = True,
+    num_workers: int = 4,
 ):
     """
     Returns a DataLoader with ogg data from audio files.
@@ -89,9 +83,7 @@ def triplet_dataloader(
     transform_list = []
     transform_list.append(ToFloatTensor())
     transform = transforms.Compose(transform_list)
-    dataset = TileTripletsDataset(
-        tile_dir, transform=transform, n_triplets=n_triplets, pairs_only=pairs_only
-    )
+    dataset = TileTripletsDataset(meta_df, tile_dir, transform=transform)
     dataloader = DataLoader(
         dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
     )
