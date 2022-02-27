@@ -178,6 +178,7 @@ numpy==1.21.5
     #   matplotlib
     #   numba
     #   pandas
+    #   pyarrow
     #   resampy
     #   scikit-learn
     #   scipy
@@ -217,6 +218,8 @@ pure-eval==0.2.2
     # via stack-data
 py4j==0.10.9.3
     # via pyspark
+pyarrow==7.0.0
+    # via birdclef
 pycparser==2.21
     # via cffi
 pygments==2.11.2

@@ -3,13 +3,14 @@
 This is the first step of the preprocessing pipeline.
 """
 import json
+import warnings
 from multiprocessing import Pool
 from pathlib import Path
-import warnings
 
 import click
 import librosa
 import numpy as np
+import pandas as pd
 import tqdm
 from simple import simple_fast
 
@@ -84,13 +85,13 @@ def motif():
 
 @motif.command()
 @click.option("--species", type=str)
-@click.option("--dataset", type=str, default="2022-02-21-motif")
+@click.option("--output", type=str, default="2022-02-21-motif")
 def extract(species, dataset):
     rel_root = Path(ROOT / "data/raw/birdclef-2022/train_audio")
     src = rel_root
     if species:
         src = src / species
-    dst = Path(ROOT / f"data/intermediate/{dataset}")
+    dst = Path(ROOT / f"data/intermediate/{output}")
 
     files = list(src.glob("**/*.ogg"))
     if not files:
@@ -103,6 +104,29 @@ def extract(species, dataset):
 
     with Pool(12) as p:
         p.starmap(write, tqdm.tqdm(args, total=len(args)), chunksize=1)
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text())
+
+
+@motif.command()
+@click.option("--input", type=str, default="2022-02-21-motif")
+@click.option("--output", type=str, default="2022-02-26-motif-consolidated")
+def consolidate(input, output):
+    src = Path(ROOT / f"data/intermediate/{input}")
+    dst = Path(ROOT / f"data/intermediate/{output}.parquet")
+
+    files = list(src.glob("**/metadata.json"))
+    if not files:
+        raise ValueError("no files found")
+
+    with Pool(12) as p:
+        data = p.map(_read_json, tqdm.tqdm(files, total=len(files)), chunksize=1)
+
+    df = pd.DataFrame(data)
+    print(df.head())
+    df.to_parquet(dst)
 
 
 if __name__ == "__main__":

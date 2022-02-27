@@ -16,5 +16,6 @@ setup(
         "librosa",
         "click",
         "tqdm",
+        "pyarrow",
     ],
 )
