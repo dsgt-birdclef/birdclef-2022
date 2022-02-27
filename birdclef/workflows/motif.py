@@ -129,5 +129,19 @@ def consolidate(input, output):
     df.to_parquet(dst)
 
 
+@motif.command()
+@click.option("--input", type=str, default="2022-02-26-motif-consolidated"")
+@click.option("--output", type=str, default="2022-02-26-motif-triplets")
+def generate_triplets(input, output):
+    src = Path(ROOT / f"data/intermediate/{input}.parquet")
+    dst = Path(ROOT / f"data/intermediate/{output}.parquet")
+
+    # how exactly should we generate triplets
+
+    df = pd.DataFrame(data)
+    print(df.head())
+    df.to_parquet(dst)
+
+
 if __name__ == "__main__":
     motif()
