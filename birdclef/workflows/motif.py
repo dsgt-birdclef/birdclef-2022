@@ -5,6 +5,7 @@ This is the first step of the preprocessing pipeline.
 import json
 from multiprocessing import Pool
 from pathlib import Path
+import warnings
 
 import click
 import librosa
@@ -15,6 +16,9 @@ from simple import simple_fast
 from birdclef.utils import cens_per_sec
 
 ROOT = Path(__file__).parent.parent.parent
+
+# UserWarning: n_fft=1024 is too small for input signal of length=846
+warnings.filterwarnings("ignore", ".*n_fft.*")
 
 
 def write(input_path, output_path, cens_sr=10, mp_window=50):
@@ -33,31 +37,37 @@ def write(input_path, output_path, cens_sr=10, mp_window=50):
     # read the audio file and calculate the position of the motif
     data, sample_rate = librosa.load(input_path)
     duration = librosa.get_duration(y=data, sr=sample_rate)
-    if duration < 5:
-        # TODO: write a proper error
-        print(f"{input_path} - duration is too small: {duration}")
-        return
-
     cens = librosa.feature.chroma_cens(
         y=data, sr=sample_rate, hop_length=cens_per_sec(sample_rate, cens_sr)
     )
+
+    metadata = {
+        "source_name": "/".join(input_path.parts[-3:]),
+        "cens_sample_rate": cens_sr,
+        "matrix_profile_window": mp_window,
+        "sample_rate": sample_rate,
+        "duration_cens": cens.shape[1],
+        "duration_samples": data.shape[0],
+        "duration_seconds": round(duration, 2),
+        "motif_0": None,
+        "motif_1": None,
+    }
+    path.mkdir(exist_ok=True, parents=True)
+    if duration < 5:
+        # the duration is too short, but let's still write out useful data
+        # print(f"{input_path} - duration is too small: {duration}")
+        (path / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
+        return
+
     mp, pi = simple_fast(cens, cens, mp_window)
     motif = np.argmin(mp)
     idx = int(motif), int(pi[motif])
 
-    path.mkdir(exist_ok=True, parents=True)
     (path / "metadata.json").write_text(
         json.dumps(
             {
-                "source_name": "/".join(input_path.parts[-3:]),
-                "cens_sample_rate": cens_sr,
-                "matrix_profile_window": mp_window,
-                "motif_0": idx[0],
-                "motif_1": idx[1],
-                "sample_rate": sample_rate,
-                "duration_cens": cens.shape[1],
-                "duration_samples": data.shape[0],
-                "duration_seconds": round(duration, 2),
+                **metadata,
+                **{"motif_0": idx[0], "motif_1": idx[1]},
             },
             indent=2,
         )
@@ -67,14 +77,20 @@ def write(input_path, output_path, cens_sr=10, mp_window=50):
     np.save(f"{path}/pi.npy", pi)
 
 
-@click.command()
+@click.group()
+def motif():
+    pass
+
+
+@motif.command()
 @click.option("--species", type=str)
-def main(species):
+@click.option("--dataset", type=str, default="2022-02-21-motif")
+def extract(species, dataset):
     rel_root = Path(ROOT / "data/raw/birdclef-2022/train_audio")
     src = rel_root
     if species:
         src = src / species
-    dst = Path(ROOT / "data/intermediate/2022-02-21-motif")
+    dst = Path(ROOT / f"data/intermediate/{dataset}")
 
     files = list(src.glob("**/*.ogg"))
     if not files:
@@ -90,4 +106,4 @@ def main(species):
 
 
 if __name__ == "__main__":
-    main()
+    motif()
