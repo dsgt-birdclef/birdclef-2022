@@ -129,18 +129,108 @@ def consolidate(input, output):
     df.to_parquet(dst)
 
 
+def generate_samples(df, n_samples, grouping_col="family", window_sec=5):
+    """
+    We generate two sets of dataset, and then union them at the end first
+    generate the same of completely random samples. This will comprise of half
+    our distant data. The other half will comprise of random samples from
+    motifs. We will always choose to use stratified sampling in order to
+    represent all species equally.
+
+    there's no reason that our embedding should try to cluster between classes
+    based on the frequency of samples. We should instead try to embed based on
+    the actual content of the samples that we hear. This is why this function
+    will perform stratified sampling over the family that the audio comes from.
+    """
+    res = pd.DataFrame()
+    groups = df[grouping_col].unique()
+    for group in groups:
+
+        def sample_group(k, include=True):
+            return (
+                df[df[grouping_col] == group]
+                if include
+                else df[df[grouping_col] != group]
+            ).sample(k, replace=True)
+
+        k = n_samples // len(groups) // 2
+
+        # inter_clip
+        x, y, z = [sample_group(k, True).fillna(-1).reset_index() for _ in range(3)]
+
+        tmp_ab = pd.concat(
+            [
+                pd.DataFrame(
+                    {
+                        "a": x.source_name,
+                        "a_loc": x.motif_0,
+                        "b": x.source_name,
+                        "b_loc": x.motif_1,
+                    }
+                ),
+                pd.DataFrame(
+                    {
+                        "a": y.source_name,
+                        "a_loc": y.motif_0,
+                        "b": z.source_name,
+                        "b_loc": z.motif_1,
+                    }
+                ),
+            ]
+        )
+        # now we randomly sample against clips outside the family which are
+        # (motifs, random)
+
+        x, y = [sample_group(k, False).fillna(-1).reset_index() for _ in range(2)]
+        tmp_c = pd.concat(
+            [
+                pd.DataFrame({"c": x.source_name, "c_loc": x.motif_0}),
+                pd.DataFrame(
+                    {
+                        "c": y.source_name,
+                        "c_loc": y.duration_seconds.apply(
+                            lambda s: -1
+                            if s <= window_sec
+                            else np.random.rand() * (s - window_sec) + (window_sec / 2)
+                        ),
+                    }
+                ),
+            ]
+        )
+
+        tmp = pd.concat([tmp_ab, tmp_c], axis=1)
+
+        if res.empty:
+            res = tmp
+        else:
+            res = pd.concat([res, tmp])
+    return res.sample(frac=1).reset_index()
+
+
 @motif.command()
-@click.option("--input", type=str, default="2022-02-26-motif-consolidated"")
+@click.option("--input", type=str, default="2022-02-26-motif-consolidated")
 @click.option("--output", type=str, default="2022-02-26-motif-triplets")
-def generate_triplets(input, output):
+@click.option("--samples", type=float, default=1e6)
+def generate_triplets(input, output, samples):
+    samples = int(samples)
+    taxa_path = Path(ROOT / "data/raw/birdclef-2022/eBird_Taxonomy_v2021.csv")
     src = Path(ROOT / f"data/intermediate/{input}.parquet")
-    dst = Path(ROOT / f"data/intermediate/{output}.parquet")
+    dst = Path(ROOT / f"data/intermediate/{output}-{samples:.0e}.parquet")
 
-    # how exactly should we generate triplets
+    taxa = pd.read_csv(taxa_path)
+    df = pd.read_parquet(src)
+    df["species"] = df.source_name.apply(lambda x: x.split("/")[1]).astype(str)
+    transformed_df = df.merge(
+        taxa[["SPECIES_CODE", "FAMILY"]].rename(
+            columns={"SPECIES_CODE": "species", "FAMILY": "family"}
+        ),
+        on="species",
+        how="left",
+    )[["source_name", "species", "family", "motif_0", "motif_1", "duration_seconds"]]
 
-    df = pd.DataFrame(data)
-    print(df.head())
-    df.to_parquet(dst)
+    res = generate_samples(transformed_df, samples)
+    print(res)
+    res.to_parquet(dst)
 
 
 if __name__ == "__main__":

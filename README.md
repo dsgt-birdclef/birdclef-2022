@@ -9,6 +9,7 @@ over a 5 second window.
 ```bash
 python -m birdclef.workflows.motif extract
 python -m birdclef.workflows.motif consolidate
+python -m birdclef.workflows.motif generate-triplets --samples 10000
 ```
 
 This generates a new dataset with the location of the motif and it's closest
