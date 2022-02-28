@@ -10,6 +10,7 @@ Reference:
     on-the-fly gpu audio to spectrogram conversion toolbox using 1d
     convolutional neural networks. IEEE Access, 8, 161981-162003.
 """
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,7 +18,7 @@ from nnAudio import Spectrogram
 from torch.autograd import Variable
 
 
-class ResidualBlock(nn.Module):
+class ResidualBlock(pl.LightningModule):
     def __init__(self, in_planes, planes, stride=1):
         super(ResidualBlock, self).__init__()
 
@@ -45,7 +46,7 @@ class ResidualBlock(nn.Module):
         return out
 
 
-class TileNet(nn.Module):
+class TileNet(pl.LightningModule):
     def __init__(
         self,
         num_blocks,

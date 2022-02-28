@@ -35,13 +35,23 @@ def metadata_df(tile_path):
                 [3, 3, 3, -1, -1, -1],
                 [10, 10, 10, 0, 5, 9],
             ]
+            * 5
         ]
     )
 
 
-def test_triplet_dataloader_instantiates(metadata_df, tile_path):
-    dataloader = datasets.triplet_dataloader(metadata_df, tile_path, batch_size=1)
+def test_tile_triplets_triplets_dataset(metadata_df, tile_path):
+    dataset = datasets.TileTripletsDataset(metadata_df, tile_path)
     count = 0
-    for _ in dataloader:
+    for i in range(len(dataset)):
+        assert dataset[i]
         count += 1
     assert count == metadata_df.shape[0]
+
+
+def test_tile_triplets_datamodule(metadata_df, tile_path):
+    dm = datasets.TileTripletsDataModule(metadata_df, tile_path, batch_size=1)
+    dm.setup()
+    assert len(dm.train_dataloader()) == 8
+    assert len(dm.val_dataloader()) == 1
+    assert len(dm.test_dataloader()) == 1

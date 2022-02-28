@@ -3,13 +3,15 @@ from pathlib import Path
 
 import librosa
 import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, random_split
 from torchvision import transforms
 
 
 class TileTripletsDataset(Dataset):
-    def __init__(self, meta_df, tile_dir, transform=None):
+    def __init__(self, meta_df: pd.DataFrame, tile_dir: Path, transform=None):
         self.df = meta_df
         self.tile_dir = Path(tile_dir)
         self.transform = transform
@@ -17,7 +19,7 @@ class TileTripletsDataset(Dataset):
     def __len__(self):
         return self.df.shape[0]
 
-    def _load_audio(self, row, col, duration=5):
+    def _load_audio(self, row: pd.Series, col: str, duration=5):
         offset = row[f"{col}_loc"]
         filename = self.tile_dir / row[col]
         # -1 is when the audio file is shorter than our 5 second window
@@ -32,7 +34,7 @@ class TileTripletsDataset(Dataset):
         length = sr * duration
         return np.resize(np.moveaxis(y, -1, 0), length)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         try:
             row = self.df.iloc[idx]
         except:
@@ -68,23 +70,30 @@ class ToFloatTensor(object):
 ### TRANSFORMS ###
 
 
-def triplet_dataloader(
-    meta_df,
-    tile_dir: Path,
-    batch_size: int = 4,
-    shuffle: bool = True,
-    num_workers: int = 4,
-):
-    """
-    Returns a DataLoader with ogg data from audio files.
-    Turn shuffle to False for producing embeddings that correspond to original
-    tiles.
-    """
-    transform_list = []
-    transform_list.append(ToFloatTensor())
-    transform = transforms.Compose(transform_list)
-    dataset = TileTripletsDataset(meta_df, tile_dir, transform=transform)
-    dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
-    )
-    return dataloader
+class TileTripletsDataModule(pl.LightningDataModule):
+    def __init__(self, meta_df: pd.DataFrame, data_dir: Path, batch_size=4):
+        super().__init__()
+        self.meta_df = meta_df
+        self.data_dir = data_dir
+        self.batch_size = batch_size
+
+    def setup(self):
+        n = self.meta_df.shape[0]
+        ratios = [0.8, 0.1, 0.1]
+        lengths = [int(n * p) for p in ratios]
+
+        dataset = TileTripletsDataset(
+            self.meta_df,
+            self.data_dir,
+            transform=transforms.Compose([ToFloatTensor()]),
+        )
+        self.train, self.val, self.test = random_split(dataset, lengths)
+
+    def train_dataloader(self):
+        return DataLoader(self.train, batch_size=self.batch_size)
+
+    def val_dataloader(self):
+        return DataLoader(self.val, batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.test, batch_size=self.batch_size)

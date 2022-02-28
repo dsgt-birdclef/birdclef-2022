@@ -14,3 +14,5 @@ python -m birdclef.workflows.motif generate-triplets --samples 10000
 
 This generates a new dataset with the location of the motif and it's closest
 neighbor. The entire matrix profile is made available for further analysis.
+
+- https://towardsdatascience.com/from-pytorch-to-pytorch-lightning-a-gentle-introduction-b371b7caaf09
