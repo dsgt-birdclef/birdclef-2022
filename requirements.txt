@@ -404,6 +404,8 @@ torch==1.10.2+cu102
     #   torchaudio
     #   torchmetrics
     #   torchvision
+torch-summary==1.4.5
+    # via -r requirements.in
 torchaudio===0.10.2+cu102
     # via -r requirements.in
 torchmetrics==0.7.2
