@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 import librosa
 import numpy as np
@@ -49,10 +50,7 @@ class TileTripletsDataset(Dataset):
         return sample
 
 
-### TRANSFORMS ###
-
-
-class ToFloatTensor(object):
+class ToFloatTensor:
     """
     Converts numpy arrays to float Variables in Pytorch.
     """
@@ -67,17 +65,17 @@ class ToFloatTensor(object):
         return sample
 
 
-### TRANSFORMS ###
-
-
 class TileTripletsDataModule(pl.LightningDataModule):
-    def __init__(self, meta_df: pd.DataFrame, data_dir: Path, batch_size=4):
+    def __init__(
+        self, meta_df: pd.DataFrame, data_dir: Path, batch_size=4, num_workers=8
+    ):
         super().__init__()
         self.meta_df = meta_df
         self.data_dir = data_dir
         self.batch_size = batch_size
+        self.num_workers = num_workers
 
-    def setup(self):
+    def setup(self, stage: Optional[str] = None):
         n = self.meta_df.shape[0]
         ratios = [0.8, 0.1, 0.1]
         lengths = [int(n * p) for p in ratios]
@@ -90,10 +88,16 @@ class TileTripletsDataModule(pl.LightningDataModule):
         self.train, self.val, self.test = random_split(dataset, lengths)
 
     def train_dataloader(self):
-        return DataLoader(self.train, batch_size=self.batch_size)
+        return DataLoader(
+            self.train, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val, batch_size=self.batch_size)
+        return DataLoader(
+            self.val, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def test_dataloader(self):
-        return DataLoader(self.test, batch_size=self.batch_size)
+        return DataLoader(
+            self.test, batch_size=self.batch_size, num_workers=self.num_workers
+        )

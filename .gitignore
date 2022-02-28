@@ -6,3 +6,4 @@ venv/
 .Rproj.user
 __pycache__/
 *.egg-info/
+lightning_logs
