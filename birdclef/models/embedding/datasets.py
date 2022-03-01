@@ -79,6 +79,7 @@ class TileTripletsDataModule(pl.LightningDataModule):
         n = self.meta_df.shape[0]
         ratios = [0.8, 0.1, 0.1]
         lengths = [int(n * p) for p in ratios]
+        lengths[0] += n - sum(lengths)
 
         dataset = TileTripletsDataset(
             self.meta_df,

@@ -58,6 +58,7 @@ class TileNet(pl.LightningModule):
         sample_rate=22050,
     ):
         super(TileNet, self).__init__()
+        self.lr = 1e-3
         self.z_dim = z_dim
         self.in_planes = 64
 
@@ -125,7 +126,7 @@ class TileNet(pl.LightningModule):
         return self.triplet_loss(z_p, z_n, z_d, margin=margin, l2=l2)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3, betas=(0.5, 0.999))
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, betas=(0.5, 0.999))
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
         return [optimizer], [lr_scheduler]
 
@@ -148,7 +149,7 @@ class TileNet(pl.LightningModule):
         # shouldn't be calling the backward step.
         losses = self.training_step(batch, batch_idx)
         for key, value in losses.items():
-            self.log(key, value)
+            self.log(f"val_{key}", value)
 
     def test_step(self, batch, batch_idx):
         losses = self.training_step(batch, batch_idx)
