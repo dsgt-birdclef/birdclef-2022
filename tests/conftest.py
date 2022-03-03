@@ -13,7 +13,7 @@ def tile_path(tmp_path):
 def metadata_df(tile_path):
     # first chirp example
     # https://librosa.org/doc/main/generated/librosa.chirp.html#librosa.chirp
-    sr = 22050
+    sr = 32000
     chirp = librosa.chirp(sr=sr, fmin=110, fmax=110 * 64, duration=10)
     for i in [3, 10]:
         sf.write(

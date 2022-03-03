@@ -36,7 +36,7 @@ def write(input_path, output_path, cens_sr=10, mp_window=50):
             return
 
     # read the audio file and calculate the position of the motif
-    data, sample_rate = librosa.load(input_path)
+    data, sample_rate = librosa.load(input_path, 32000)
     duration = librosa.get_duration(y=data, sr=sample_rate)
     cens = librosa.feature.chroma_cens(
         y=data, sr=sample_rate, hop_length=cens_per_sec(sample_rate, cens_sr)

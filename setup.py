@@ -1,3 +1,4 @@
+import setuptools
 from distutils.core import setup
 
 setup(
@@ -12,8 +13,8 @@ setup(
         "numpy",
         "pandas",
         "matplotlib",
-        "pyspark",
         "librosa",
+        "soundfile",
         "click",
         "tqdm",
         "pyarrow",

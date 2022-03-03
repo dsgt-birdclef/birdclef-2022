@@ -1,11 +1,13 @@
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger
-from torchsummary import summary
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+import warnings
 
-from birdclef.models.embedding import datasets, tilenet
 import click
 import pandas as pd
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger
+from torchsummary import summary
+
+from birdclef.models.embedding import datasets, tilenet
 
 
 @click.group()
@@ -30,7 +32,7 @@ def fit(metadata, dataset_dir, dim, n_mels, name, log_dir, checkpoint_dir):
     data_module = datasets.TileTripletsDataModule(
         metadata_df,
         dataset_dir,
-        batch_size=16,
+        batch_size=4,
         num_workers=8,
     )
     model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
@@ -38,15 +40,17 @@ def fit(metadata, dataset_dir, dim, n_mels, name, log_dir, checkpoint_dir):
     trainer = pl.Trainer(
         gpus=-1,
         precision=16,
+        # This ends up with a size of 4
         auto_scale_batch_size="binsearch",
-        auto_lr_find=True,
+        # auto_lr_find=True,
         logger=TensorBoardLogger(log_dir, name=name),
         default_root_dir=checkpoint_dir,
         callbacks=[EarlyStopping(monitor="val_loss", mode="min")],
+        profiler="simple",
     )
     trainer.tune(model, data_module)
-    print(f"batchsize: {data_module.batch_size}, lr: {model.lr}")
-    trainer.fit(model, data_module)
+    print(f"batch size: {data_module.batch_size}, lr: {model.lr}")
+    # trainer.fit(model, data_module)
 
 
 if __name__ == "__main__":

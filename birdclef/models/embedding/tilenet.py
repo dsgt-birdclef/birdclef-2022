@@ -55,7 +55,7 @@ class TileNet(pl.LightningModule):
         hop_length=512,
         fmin=0,
         fmax=16000,
-        sample_rate=22050,
+        sample_rate=32000,
     ):
         super(TileNet, self).__init__()
         self.lr = 1e-3
@@ -74,7 +74,7 @@ class TileNet(pl.LightningModule):
         self.layer3 = self._make_layer(256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(512, num_blocks[3], stride=2)
         self.layer5 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
-        self.fc1 = nn.Linear(self.z_dim * 3, self.z_dim)
+        self.fc1 = nn.Linear(self.z_dim * 5, self.z_dim)
 
     def _make_layer(self, planes, num_blocks, stride, no_relu=False):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -94,7 +94,7 @@ class TileNet(pl.LightningModule):
         x = self.layer5(x)
         x = F.avg_pool2d(x, 4)
         z = x.view(x.size(0), -1)
-        # for some reason, we get 3x the size of the final dimension
+        # for some reason, we get 3-5x the size of the final dimension
         z = self.fc1(z)
         return z
 

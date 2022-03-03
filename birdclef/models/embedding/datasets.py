@@ -22,14 +22,16 @@ class TileTripletsDataset(Dataset):
 
     def _load_audio(self, row: pd.Series, col: str, duration=5):
         offset = row[f"{col}_loc"]
-        filename = self.tile_dir / row[col]
+        filename = (self.tile_dir / row[col]).as_posix()
         # -1 is when the audio file is shorter than our 5 second window
         if offset > 0:
             # we know we have enough room to read near the ends, so we can shift
             # it by some amount
             # this is not exactly even, but it's good enough for me right now
             offset = max(offset + (np.random.rand() - 0.5) * duration, 0)
-        y, sr = librosa.load(filename, offset=offset, duration=duration)
+            y, sr = librosa.load(filename, offset=offset, duration=duration, sr=32000)
+        else:
+            y, sr = librosa.load(filename, sr=32000)
 
         # ensure these are audio samples
         length = sr * duration
