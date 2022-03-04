@@ -4,6 +4,7 @@ This is the first step of the preprocessing pipeline.
 """
 import json
 import warnings
+from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -129,7 +130,7 @@ def consolidate(input, output):
     df.to_parquet(dst)
 
 
-def generate_samples(df, n_samples, grouping_col="family", window_sec=5):
+def generate_samples(df, n_samples, grouping_col="family", window_sec=7):
     """
     We generate two sets of dataset, and then union them at the end first
     generate the same of completely random samples. This will comprise of half
@@ -231,6 +232,60 @@ def generate_triplets(input, output, samples):
     res = generate_samples(transformed_df, samples)
     print(res)
     res.to_parquet(dst)
+
+
+def _load_audio(input_path: Path, offset: int, duration: int = 7, sr: int = 32000):
+    # offset is the center point
+    y, sr = librosa.load(input_path.as_posix(), sr=sr)
+    pad_size = int(np.ceil(sr * duration / 2))
+    y_pad = np.pad(y, ((pad_size, pad_size)), "constant", constant_values=0)
+    length = sr * duration
+    y_trunc = y_pad[offset : offset + length]
+    return np.resize(np.moveaxis(y_trunc, -1, 0), length)
+
+
+def _extract_sample(
+    dataset_root: Path, output: Path, row: pd.Series, duration: int = 7
+):
+    # we get to write out several rows
+    for col in ["a", "b", "c"]:
+        input_path = dataset_root / row[col]
+        offset = row[f"{col}_loc"]
+        output_path = (
+            output / f"{col}_{offset:d}_{duration}_{input_path.name.split('.')[0]}.npy"
+        )
+        if output_path.exists():
+            # skip this if it already exists
+            continue
+        y = _load_audio(input_path, offset, duration)
+        np.save(output_path.as_posix(), y)
+
+
+@motif.command()
+@click.argument("input", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--dataset-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=ROOT / "data/raw/birdclef-2022",
+)
+@click.option(
+    "--output",
+    type=click.Path(file_okay=False),
+    default=ROOT / "intermediate" / "2022-03-02-extracted-triplets",
+)
+def extract_triplets(input, dataset_root, output):
+    df = pd.read_parquet(input)
+    print(df)
+    Path(output).mkdir(parents=True, exist_ok=True)
+
+    # For each of these files, read out the audio and write it out to a file.
+    # This duplicates some effort, so it would be nice to come back and refactor.
+    with Pool(12) as p:
+        p.map(
+            partial(_extract_sample, Path(dataset_root), Path(output)),
+            tqdm.tqdm([row for _, row in df.iterrows()], total=df.shape[0]),
+            chunksize=1,
+        )
 
 
 if __name__ == "__main__":
