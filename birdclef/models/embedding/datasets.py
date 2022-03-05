@@ -1,8 +1,6 @@
-import os
 from pathlib import Path
 from typing import Optional
 
-import librosa
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
@@ -27,7 +25,10 @@ class TileTripletsDataset(Dataset):
             self.tile_dir
             / f"{col}_{offset}_{duration}_{Path(row[col]).name.split('.')[0]}.npy"
         ).as_posix()
-        return np.load(filename)
+        # lets only keep 5 seconds of data
+        sr = 32000
+        offset = int(np.random.rand() * 2 * sr)
+        return np.load(filename)[offset : offset + sr * 5]
 
     def __getitem__(self, idx: int):
         try:

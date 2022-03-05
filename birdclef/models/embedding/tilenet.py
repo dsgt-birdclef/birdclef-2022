@@ -74,7 +74,7 @@ class TileNet(pl.LightningModule):
         self.layer3 = self._make_layer(256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(512, num_blocks[3], stride=2)
         self.layer5 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
-        self.fc1 = nn.Linear(self.z_dim * 7, self.z_dim)
+        self.fc1 = nn.Linear(self.z_dim * 5, self.z_dim)
 
     def _make_layer(self, planes, num_blocks, stride, no_relu=False):
         strides = [stride] + [1] * (num_blocks - 1)
