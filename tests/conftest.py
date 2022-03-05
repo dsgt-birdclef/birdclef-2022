@@ -2,6 +2,9 @@ import librosa
 import pandas as pd
 import pytest
 import soundfile as sf
+from click.testing import CliRunner
+
+from birdclef.workflows.motif import extract_triplets
 
 
 @pytest.fixture()
@@ -37,3 +40,31 @@ def metadata_df(tile_path):
             * 5
         ]
     )
+
+
+# NOTE: we need to be careful that we don't break functionality here, since it
+# could break all the tests
+@pytest.fixture()
+def extract_triplet_path(metadata_df, tile_path, tmp_path):
+    # is this the same tmp_path?
+    df_path = tmp_path / "metadata.parquet"
+    metadata_df.to_parquet(df_path)
+    output_path = tmp_path / "output"
+
+    runner = CliRunner()
+    res = runner.invoke(
+        extract_triplets,
+        [
+            str(x)
+            for x in [
+                df_path,
+                "--dataset-root",
+                tile_path,
+                "--output",
+                output_path,
+            ]
+        ],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0
+    return output_path

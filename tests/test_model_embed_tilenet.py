@@ -1,16 +1,16 @@
+import pytest
 import pytorch_lightning as pl
 from torchsummary import summary
 
 from birdclef.models.embedding import datasets, tilenet
 
 
-def test_tilenet_train(metadata_df, tile_path):
-    z_dim = 64
-
+@pytest.mark.parametrize("z_dim", [64, 113])
+def test_tilenet_train(metadata_df, extract_triplet_path, z_dim):
     # test that the model actually runs
     data_module = datasets.TileTripletsDataModule(
         metadata_df,
-        tile_path,
+        extract_triplet_path,
         batch_size=1,
         num_workers=1,
     )

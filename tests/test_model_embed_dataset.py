@@ -1,8 +1,8 @@
 from birdclef.models.embedding import datasets
 
 
-def test_tile_triplets_triplets_dataset(metadata_df, tile_path):
-    dataset = datasets.TileTripletsDataset(metadata_df, tile_path)
+def test_tile_triplets_triplets_dataset(metadata_df, extract_triplet_path):
+    dataset = datasets.TileTripletsDataset(metadata_df, extract_triplet_path)
     count = 0
     for i in range(len(dataset)):
         assert dataset[i]
@@ -10,8 +10,10 @@ def test_tile_triplets_triplets_dataset(metadata_df, tile_path):
     assert count == metadata_df.shape[0]
 
 
-def test_tile_triplets_datamodule(metadata_df, tile_path):
-    dm = datasets.TileTripletsDataModule(metadata_df, tile_path, batch_size=1)
+def test_tile_triplets_datamodule(metadata_df, extract_triplet_path):
+    dm = datasets.TileTripletsDataModule(
+        metadata_df, extract_triplet_path, batch_size=1
+    )
     dm.setup()
     assert len(dm.train_dataloader()) == 8
     assert len(dm.val_dataloader()) == 1
