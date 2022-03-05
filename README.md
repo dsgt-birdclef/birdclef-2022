@@ -11,6 +11,7 @@ python -m birdclef.workflows.motif extract
 python -m birdclef.workflows.motif consolidate
 python -m birdclef.workflows.motif generate-triplets --samples 10000
 python -m birdclef.workflows.motif generate-triplets --samples 1000
+python -m birdclef.workflows.motif extract-triplets data/intermediate/2022-02-26-motif-triplets-1e+03.parquet
 ```
 
 This generates a new dataset with the location of the motif and it's closest

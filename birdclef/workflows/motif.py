@@ -240,6 +240,15 @@ def _load_audio(input_path: Path, offset: int, duration: int = 7, sr: int = 3200
     pad_size = int(np.ceil(sr * duration / 2))
     y_pad = np.pad(y, ((pad_size, pad_size)), "constant", constant_values=0)
     length = sr * duration
+    offset = offset * sr
+    # check for left, mid, and right conditions
+    if offset <= 0:
+        offset = 0
+    elif offset >= y.shape[0]:
+        offset = y.shape[0]
+    else:
+        pass
+
     y_trunc = y_pad[offset : offset + length]
     return np.resize(np.moveaxis(y_trunc, -1, 0), length)
 
@@ -250,9 +259,9 @@ def _extract_sample(
     # we get to write out several rows
     for col in ["a", "b", "c"]:
         input_path = dataset_root / row[col]
-        offset = row[f"{col}_loc"]
+        offset = int(row[f"{col}_loc"])
         output_path = (
-            output / f"{col}_{offset:d}_{duration}_{input_path.name.split('.')[0]}.npy"
+            output / f"{col}_{offset}_{duration}_{input_path.name.split('.')[0]}.npy"
         )
         if output_path.exists():
             # skip this if it already exists
@@ -271,7 +280,7 @@ def _extract_sample(
 @click.option(
     "--output",
     type=click.Path(file_okay=False),
-    default=ROOT / "intermediate" / "2022-03-02-extracted-triplets",
+    default=ROOT / "data/intermediate/2022-03-02-extracted-triplets",
 )
 def extract_triplets(input, dataset_root, output):
     df = pd.read_parquet(input)
