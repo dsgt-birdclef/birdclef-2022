@@ -1,6 +1,7 @@
 import pytest
 import pytorch_lightning as pl
 from torchsummary import summary
+import numpy as np
 
 from birdclef.models.embedding import datasets, tilenet
 
@@ -17,6 +18,10 @@ def test_tilenet_train(metadata_df, extract_triplet_path, z_dim):
     model = tilenet.TileNet(z_dim=z_dim, n_mels=64)
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(model, data_module)
+
+    metrics = trainer.callback_metrics
+    print(metrics)
+    assert np.abs(metrics["loss"].detach()) > 0
 
     # assert the shape of the data. Since we're predicting, we'll only keep the
     # anchor from the batch

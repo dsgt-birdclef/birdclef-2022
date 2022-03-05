@@ -34,7 +34,7 @@ def test_load_audio_short_clip_is_padded(metadata_df, tile_path):
     assert y.shape == (duration * sr,)
     assert y.sum() > 0
     assert y[:1000].sum() == 0
-    assert y[-1:-1000].sum() == 0
+    assert y[-1000:].sum() == 0
     midpoint = y.shape[0] // 2
     assert np.abs(y[midpoint - 500 : midpoint + 500]).sum() > 0
 

@@ -61,9 +61,17 @@ class TileNet(pl.LightningModule):
         self.lr = 1e-3
         self.z_dim = z_dim
         self.in_planes = 64
+        # required for CheckBatchGradient, we know we're reading 5 seconds at a
+        # time
+        self.seconds = 5
+        self.example_input_array = torch.rand(7, self.seconds * sample_rate)
 
         self.spec_layer = MelSpectrogram(
-            n_mels=n_mels, hop_length=hop_length, fmin=fmin, fmax=fmax, sr=sample_rate
+            n_mels=n_mels,
+            hop_length=hop_length,
+            fmin=fmin,
+            fmax=fmax,
+            sr=sample_rate,
         )
         print(self.spec_layer)
 
@@ -74,7 +82,7 @@ class TileNet(pl.LightningModule):
         self.layer3 = self._make_layer(256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(512, num_blocks[3], stride=2)
         self.layer5 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
-        self.fc1 = nn.Linear(self.z_dim * 5, self.z_dim)
+        self.fc1 = nn.Linear(self.z_dim * self.seconds, self.z_dim)
 
     def _make_layer(self, planes, num_blocks, stride, no_relu=False):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -85,18 +93,21 @@ class TileNet(pl.LightningModule):
         return nn.Sequential(*layers)
 
     def encode(self, x):
+        # add a little bit of noise to the audio, because the 0s cause the loss
+        # to go to nan
+        # x = torch.randn_like(x) * 0.01 + x
         x = self.spec_layer(x)
-        x = F.relu(self.bn1(self.conv1(x.unsqueeze(1))))
+        x = self.conv1(x.unsqueeze(1))
+        x = F.relu(self.bn1(x))
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
         x = self.layer5(x)
         x = F.avg_pool2d(x, 4)
-        z = x.view(x.size(0), -1)
-        # for some reason, we get 3-5x the size of the final dimension
-        z = self.fc1(z)
-        return z
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        return x
 
     def forward(self, x):
         return self.encode(x)
@@ -114,7 +125,7 @@ class TileNet(pl.LightningModule):
             loss += l2 * (torch.norm(z_p) + torch.norm(z_n) + torch.norm(z_d))
         return loss, l_n, l_d, l_nd
 
-    def loss(self, patch, neighbor, distant, margin=0.1, l2=0):
+    def loss(self, patch, neighbor, distant, margin=1, l2=0.01):
         """
         Computes loss for each batch.
         """
@@ -123,6 +134,7 @@ class TileNet(pl.LightningModule):
             self.encode(neighbor),
             self.encode(distant),
         )
+        # only return the main loss
         return self.triplet_loss(z_p, z_n, z_d, margin=margin, l2=l2)
 
     def configure_optimizers(self):
@@ -130,13 +142,13 @@ class TileNet(pl.LightningModule):
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
         return [optimizer], [lr_scheduler]
 
-    def training_step(self, batch, batch_idx):
+    def _step_losses(self, batch, batch_idx):
         p, n, d = (
             Variable(batch["anchor"]),
             Variable(batch["neighbor"]),
             Variable(batch["distant"]),
         )
-        loss, l_n, l_d, l_nd = self.loss(p, n, d, margin=1, l2=0)
+        loss, l_n, l_d, l_nd = self.loss(p, n, d, margin=50, l2=0.01)
         return {
             "loss": loss,
             "loss_n": l_n.detach(),
@@ -144,15 +156,19 @@ class TileNet(pl.LightningModule):
             "loss_nd": l_nd.detach(),
         }
 
+    def training_step(self, batch, batch_idx):
+        losses = self._step_losses(batch, batch_idx)
+        for key, value in losses.items():
+            self.log(key, value)
+        return losses["loss"]
+
     def validation_step(self, batch, batch_idx):
-        # NOTE: this is (probably) correct, since the training step itself
-        # shouldn't be calling the backward step.
-        losses = self.training_step(batch, batch_idx)
+        losses = self._step_losses(batch, batch_idx)
         for key, value in losses.items():
             self.log(f"val_{key}", value)
 
     def test_step(self, batch, batch_idx):
-        losses = self.training_step(batch, batch_idx)
+        losses = self._step_losses(batch, batch_idx)
         for key, value in losses.items():
             self.log(key, value)
 

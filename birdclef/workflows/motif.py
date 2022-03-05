@@ -242,7 +242,9 @@ def _load_audio(input_path: Path, offset: int, duration: int = 7, sr: int = 3200
     length = sr * duration
     offset = offset * sr
     # check for left, mid, and right conditions
-    if offset <= 0:
+    if y.shape[0] < length:
+        offset = (y_pad.shape[0] // 2) - pad_size
+    elif offset <= 0:
         offset = 0
     elif offset >= y.shape[0]:
         offset = y.shape[0]
