@@ -1,15 +1,12 @@
 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 git+https://github.com/acmiyaguchi/simple-python.git
 -e ./
-jupyterlab
 torch==1.10.2+cu113
 torchvision==0.11.3+cu113
 torchaudio===0.10.2+cu113
-nnAudio==0.3.1
-pytorch-lightning
-torch-summary
 
 # notebooking
+jupyterlab
 pyspark
 
 # testing

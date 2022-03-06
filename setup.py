@@ -1,9 +1,8 @@
 import setuptools
-from distutils.core import setup
 
-setup(
+setuptools.setup(
     name="birdclef",
-    version="0.2.1",
+    version="0.2.2",
     description="Utilities for birdclef",
     author="Anthony Miyaguchi",
     author_email="acmiyaguchi@gmail.com",
@@ -18,5 +17,9 @@ setup(
         "click",
         "tqdm",
         "pyarrow",
+        "torch",
+        "nnAudio",
+        "pytorch-lightning",
+        "torch-summary",
     ],
 )
