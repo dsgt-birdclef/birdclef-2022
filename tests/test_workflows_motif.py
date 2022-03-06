@@ -71,4 +71,4 @@ def test_load_audio_full_clip_is_padded(metadata_df, tile_path):
 def test_extract_triplets(extract_triplet_path):
     # there should be 6 entries
     files = list(extract_triplet_path.glob("*.npy"))
-    assert len(files) == 6
+    assert len(files) == 4

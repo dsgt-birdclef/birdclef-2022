@@ -1,4 +1,5 @@
 from birdclef.models.embedding import datasets
+import pytest
 
 
 def test_tile_triplets_triplets_dataset(metadata_df, extract_triplet_path):
@@ -15,6 +16,7 @@ def test_tile_triplets_datamodule(metadata_df, extract_triplet_path):
         metadata_df, extract_triplet_path, batch_size=1
     )
     dm.setup()
-    assert len(dm.train_dataloader()) == 8
+    assert len(dm.train_dataloader()) == 9
     assert len(dm.val_dataloader()) == 1
-    assert len(dm.test_dataloader()) == 1
+    with pytest.raises(NotImplementedError):
+        dm.test_dataloader()

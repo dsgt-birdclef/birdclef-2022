@@ -25,7 +25,7 @@ def test_tilenet_train(metadata_df, extract_triplet_path, z_dim):
 
     # assert the shape of the data. Since we're predicting, we'll only keep the
     # anchor from the batch
-    for batch in data_module.test_dataloader():
+    for batch in data_module.val_dataloader():
         x = batch["anchor"]
         yhat = model(x)
     # print out the summary from the last batch

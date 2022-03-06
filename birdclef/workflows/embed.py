@@ -64,14 +64,26 @@ def model_summary(metadata, dataset_dir, dim, n_mels):
 @click.option("--name", type=str, default="tile2vec")
 @click.option("--log-dir", type=str, default="data/intermediate/tb_logs")
 @click.option("--checkpoint-dir", type=str, default="data/intermediate/checkpoint")
-def fit(metadata, dataset_dir, dim, n_mels, name, log_dir, checkpoint_dir):
+@click.option("--limit-train-batches", type=int, default=5000)
+@click.option("--limit-val-batches", type=int, default=500)
+def fit(
+    metadata,
+    dataset_dir,
+    dim,
+    n_mels,
+    name,
+    log_dir,
+    checkpoint_dir,
+    limit_train_batches,
+    limit_val_batches,
+):
     metadata_df = pd.read_parquet(metadata)
     data_module = datasets.TileTripletsDataModule(
         metadata_df,
         dataset_dir,
         # batch size of 64 is roughly as large as we can go with 16 bit
         # precision, 32 for for 32 bit precision
-        batch_size=25,
+        batch_size=20,
         # setting this number higher can lead to slower results, oddly enough
         num_workers=4,
     )
@@ -83,15 +95,18 @@ def fit(metadata, dataset_dir, dim, n_mels, name, log_dir, checkpoint_dir):
         # precision=16,
         # auto_scale_batch_size="binsearch",
         auto_lr_find=True,
+        # NOTE: does thi set the checkpoint directory correctly?
+        default_root_dir=checkpoint_dir,
         logger=TensorBoardLogger(log_dir, name=name),
+        limit_train_batches=limit_train_batches,
+        limit_val_batches=limit_val_batches,
+        detect_anomaly=True,
         callbacks=[
             EarlyStopping(monitor="val_loss", mode="min"),
             # NOTE: need to figure out how to change the model so that it
             # actually passes this batch gradient condition.
             # CheckBatchGradient(),
-            ModelCheckpoint(
-                dirpath=checkpoint_dir, filename="tilenet-{epoch:02d}-{val_loss:.2f}"
-            ),
+            ModelCheckpoint(filename="tilenet-{epoch:02d}-{val_loss:.2f}"),
         ],
         # profiler="simple",
     )

@@ -72,7 +72,7 @@ class TileNet(pl.LightningModule):
             fmin=fmin,
             fmax=fmax,
             sr=sample_rate,
-            trainable_mel=True,
+            # trainable_mel=True,
             # trainable_STFT=True,
         )
         print(self.spec_layer)
@@ -84,9 +84,11 @@ class TileNet(pl.LightningModule):
         self.layer3 = self._make_layer(256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(512, num_blocks[3], stride=2)
         self.layer5 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
-        self.fc1 = nn.Linear(self.z_dim * self.seconds, self.z_dim)
+        self.pool = lambda x: F.avg_pool2d(x, 4)
+        self.flatten = lambda x: x.view(x.size(0), -1)
+        self.fc1 = nn.Linear(self.z_dim * self.seconds, self.z_dim, bias=False)
 
-    def _make_layer(self, planes, num_blocks, stride, no_relu=False):
+    def _make_layer(self, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
@@ -97,7 +99,7 @@ class TileNet(pl.LightningModule):
     def encode(self, x):
         # add a little bit of noise to the audio, because the 0s cause the loss
         # to go to nan
-        # x = torch.randn_like(x) * 0.01 + x
+        x = torch.randn_like(x) * 0.05 + x
         x = self.spec_layer(x)
         x = self.conv1(x.unsqueeze(1))
         x = F.relu(self.bn1(x))
@@ -106,15 +108,15 @@ class TileNet(pl.LightningModule):
         x = self.layer3(x)
         x = self.layer4(x)
         x = self.layer5(x)
-        x = F.avg_pool2d(x, 4)
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
+        x = self.pool(x)
+        x = self.flatten(x)
+        x = F.relu(self.fc1(x))
         return x
 
     def forward(self, x):
         return self.encode(x)
 
-    def triplet_loss(self, z_p, z_n, z_d, margin=0.1, l2=0):
+    def triplet_loss(self, z_p, z_n, z_d, margin, l2):
         l_n = torch.sqrt(((z_p - z_n) ** 2).sum(dim=1))
         l_d = -torch.sqrt(((z_p - z_d) ** 2).sum(dim=1))
         l_nd = l_n + l_d
@@ -127,7 +129,7 @@ class TileNet(pl.LightningModule):
             loss += l2 * (torch.norm(z_p) + torch.norm(z_n) + torch.norm(z_d))
         return loss, l_n, l_d, l_nd
 
-    def loss(self, patch, neighbor, distant, margin=1, l2=0.01):
+    def loss(self, patch, neighbor, distant, margin=50, l2=0.01):
         """
         Computes loss for each batch.
         """
@@ -140,7 +142,7 @@ class TileNet(pl.LightningModule):
         return self.triplet_loss(z_p, z_n, z_d, margin=margin, l2=l2)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, betas=(0.5, 0.999))
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.5, 0.999))
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
         return [optimizer], [lr_scheduler]
 
@@ -150,7 +152,7 @@ class TileNet(pl.LightningModule):
             Variable(batch["neighbor"]),
             Variable(batch["distant"]),
         )
-        loss, l_n, l_d, l_nd = self.loss(p, n, d, margin=50, l2=0.01)
+        loss, l_n, l_d, l_nd = self.loss(p, n, d)
         return {
             "loss": loss,
             "loss_n": l_n.detach(),

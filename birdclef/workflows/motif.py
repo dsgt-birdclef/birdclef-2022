@@ -263,7 +263,7 @@ def _extract_sample(
         input_path = dataset_root / row[col]
         offset = int(row[f"{col}_loc"])
         output_path = (
-            output / f"{col}_{offset}_{duration}_{input_path.name.split('.')[0]}.npy"
+            output / f"{input_path.name.split('.')[0]}_{offset}_{duration}.npy"
         )
         if output_path.exists():
             # skip this if it already exists

@@ -21,9 +21,9 @@ class TileTripletsDataset(Dataset):
     def _load_audio(self, row: pd.Series, col: str, duration=7):
         # build the canonical filename
         offset = int(row[f"{col}_loc"])
+        input_path = Path(row[col])
         filename = (
-            self.tile_dir
-            / f"{col}_{offset}_{duration}_{Path(row[col]).name.split('.')[0]}.npy"
+            self.tile_dir / f"{input_path.name.split('.')[0]}_{offset}_{duration}.npy"
         ).as_posix()
         # lets only keep 5 seconds of data
         sr = 32000
@@ -62,17 +62,28 @@ class ToFloatTensor:
 
 class TileTripletsDataModule(pl.LightningDataModule):
     def __init__(
-        self, meta_df: pd.DataFrame, data_dir: Path, batch_size=4, num_workers=8
+        self,
+        meta_df: pd.DataFrame,
+        data_dir: Path,
+        batch_size=4,
+        num_workers=8,
+        shuffle=True,
     ):
         super().__init__()
         self.meta_df = meta_df
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.kwargs = dict(
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
+        self.shuffle = shuffle
 
     def setup(self, stage: Optional[str] = None):
         n = self.meta_df.shape[0]
-        ratios = [0.8, 0.1, 0.1]
+        ratios = [0.9, 0.1]
         lengths = [int(n * p) for p in ratios]
         lengths[0] += n - sum(lengths)
 
@@ -81,19 +92,13 @@ class TileTripletsDataModule(pl.LightningDataModule):
             self.data_dir,
             transform=transforms.Compose([ToFloatTensor()]),
         )
-        self.train, self.val, self.test = random_split(dataset, lengths)
+        self.train, self.val = random_split(dataset, lengths)
 
     def train_dataloader(self):
-        return DataLoader(
-            self.train, batch_size=self.batch_size, num_workers=self.num_workers
-        )
+        return DataLoader(self.train, shuffle=self.shuffle, **self.kwargs)
 
     def val_dataloader(self):
-        return DataLoader(
-            self.val, batch_size=self.batch_size, num_workers=self.num_workers
-        )
+        return DataLoader(self.val, **self.kwargs)
 
     def test_dataloader(self):
-        return DataLoader(
-            self.test, batch_size=self.batch_size, num_workers=self.num_workers
-        )
+        raise NotImplementedError()
