@@ -1,8 +1,8 @@
-from distutils.core import setup
+import setuptools
 
-setup(
+setuptools.setup(
     name="birdclef",
-    version="0.1.1",
+    version="0.2.2",
     description="Utilities for birdclef",
     author="Anthony Miyaguchi",
     author_email="acmiyaguchi@gmail.com",
@@ -12,9 +12,14 @@ setup(
         "numpy",
         "pandas",
         "matplotlib",
-        "pyspark",
         "librosa",
+        "soundfile",
         "click",
         "tqdm",
+        "pyarrow",
+        "torch",
+        "nnAudio",
+        "pytorch-lightning",
+        "torch-summary",
     ],
 )
