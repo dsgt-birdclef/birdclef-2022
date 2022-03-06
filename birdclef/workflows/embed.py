@@ -2,23 +2,13 @@ import click
 import pandas as pd
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchsummary import summary
 
 from birdclef.models.embedding import datasets, tilenet
 
 # https://www.pytorchlightning.ai/blog/3-simple-tricks-that-will-change-the-way-you-debug-pytorch
-class InputMonitor(pl.Callback):
-    def on_train_batch_start(self, trainer, model, batch, batch_idx):
-        if (batch_idx + 1) % trainer.log_every_n_steps == 0:
-            x, y = batch
-            logger = trainer.logger
-            logger.experiment.add_histogram("input", x, global_step=trainer.global_step)
-            logger.experiment.add_histogram(
-                "target", y, global_step=trainer.global_step
-            )
-
-
 # TODO: add this as a proper test
 class CheckBatchGradient(pl.Callback):
     def on_train_start(self, trainer, model):
@@ -58,8 +48,9 @@ def model_summary(metadata, dataset_dir, dim, n_mels):
     model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
     trainer = pl.Trainer(
         gpus=-1,
+        precision=16,
         fast_dev_run=True,
-        callbacks=[InputMonitor()],
+        # callbacks=[CheckBatchGradient()],
     )
     trainer.fit(model, data_module)
     summary(model, model.example_input_array)
@@ -88,18 +79,19 @@ def fit(metadata, dataset_dir, dim, n_mels, name, log_dir, checkpoint_dir):
 
     trainer = pl.Trainer(
         gpus=-1,
-        # using 16-bit precision causes issues with
+        # using 16-bit precision causes issues with finding the learning rate
         # precision=16,
         # auto_scale_batch_size="binsearch",
         auto_lr_find=True,
         logger=TensorBoardLogger(log_dir, name=name),
-        default_root_dir=checkpoint_dir,
         callbacks=[
             EarlyStopping(monitor="val_loss", mode="min"),
-            InputMonitor(),
             # NOTE: need to figure out how to change the model so that it
             # actually passes this batch gradient condition.
             # CheckBatchGradient(),
+            ModelCheckpoint(
+                dirpath=checkpoint_dir, filename="tilenet-{epoch:02d}-{val_loss:.2f}"
+            ),
         ],
         # profiler="simple",
     )

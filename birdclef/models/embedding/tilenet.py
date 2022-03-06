@@ -72,6 +72,8 @@ class TileNet(pl.LightningModule):
             fmin=fmin,
             fmax=fmax,
             sr=sample_rate,
+            trainable_mel=True,
+            # trainable_STFT=True,
         )
         print(self.spec_layer)
 
