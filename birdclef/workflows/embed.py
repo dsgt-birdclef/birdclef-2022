@@ -50,7 +50,7 @@ def model_summary(metadata, dataset_dir, dim, n_mels):
     model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
     trainer = pl.Trainer(
         gpus=-1,
-        precision=16,
+        # precision=16,
         fast_dev_run=True,
         # callbacks=[CheckBatchGradient()],
     )
@@ -101,7 +101,7 @@ def fit(
         # returned nan values in its 0th output.
         # precision=16,
         # auto_scale_batch_size="binsearch",
-        # auto_lr_find=True,
+        auto_lr_find=True,
         default_root_dir=root_dir,
         logger=TensorBoardLogger(root_dir, name=name),
         limit_train_batches=limit_train_batches or 1.0,
@@ -121,7 +121,7 @@ def fit(
         ],
         # profiler="simple",
     )
-    # trainer.tune(model, data_module)
+    trainer.tune(model, data_module)
     print(f"batch size: {data_module.batch_size}, lr: {model.lr}")
     summary(model, model.example_input_array)
     trainer.fit(model, data_module)

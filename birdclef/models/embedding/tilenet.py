@@ -101,6 +101,8 @@ class TileNet(pl.LightningModule):
         return nn.Sequential(*layers)
 
     def encode(self, x):
+        # add random noise for numerical stability
+        # x = torch.randn_like(x) * 0.1 + x
         x = self.spec_layer(x)
         x = self.conv1(x.unsqueeze(1))
         x = F.relu(self.bn1(x))
@@ -118,17 +120,14 @@ class TileNet(pl.LightningModule):
         return self.encode(x)
 
     def triplet_loss(self, z_p, z_n, z_d, margin, l2):
-        l_n = torch.sqrt(((z_p - z_n) ** 2).sum(dim=1))
-        l_d = -torch.sqrt(((z_p - z_d) ** 2).sum(dim=1))
-        l_nd = l_n + l_d
-        loss = F.relu(l_n + l_d + margin)
-        l_n = torch.mean(l_n)
-        l_d = torch.mean(l_d)
-        l_nd = torch.mean(l_n + l_d)
-        loss = torch.mean(loss)
-        if l2 != 0:
-            loss += l2 * (torch.norm(z_p) + torch.norm(z_n) + torch.norm(z_d))
-        return loss, l_n, l_d, l_nd
+        l_n = torch.norm(z_p - z_n, dim=1)
+        l_d = torch.norm(z_p - z_d, dim=1)
+        l_nd = l_n - l_d
+        penalty = (
+            torch.norm(z_p, dim=1) + torch.norm(z_n, dim=1) + torch.norm(z_d, dim=1)
+        )
+        loss = torch.mean(F.relu(l_nd + margin) + l2 * penalty)
+        return loss, torch.mean(l_n), torch.mean(l_d), torch.mean(l_nd)
 
     def loss(self, patch, neighbor, distant, margin=50, l2=0.01):
         """
