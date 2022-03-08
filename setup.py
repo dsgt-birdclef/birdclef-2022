@@ -21,5 +21,6 @@ setuptools.setup(
         "nnAudio",
         "pytorch-lightning",
         "torch-summary",
+        "lightgbm",
     ],
 )
