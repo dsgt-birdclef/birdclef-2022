@@ -49,10 +49,9 @@ class ResidualBlock(pl.LightningModule):
 class TileNet(pl.LightningModule):
     def __init__(
         self,
-        z_dim=512,
+        z_dim=64,
         n_mels=64,
         num_blocks=[2, 2, 2, 2, 2],
-        hop_length=512,
         fmin=0,
         fmax=16000,
         sample_rate=32000,
@@ -66,13 +65,21 @@ class TileNet(pl.LightningModule):
         self.seconds = 5
         self.example_input_array = torch.rand(7, self.seconds * sample_rate)
 
+        # we need to calculate a way to get an output that is equal to n_mels
+        # https://brianmcfee.net/dstbook-site/content/ch08-stft/Framing.html
+        n_fft = 4096
+        total_samples = self.seconds * sample_rate
+        hop_length = (total_samples - n_fft) // (n_mels - 1)
+        assert hop_length < n_fft, f"hop length too wide, {hop_length} vs {n_fft}"
+        print(f"stft hop length {hop_length}")
         self.spec_layer = MelSpectrogram(
+            n_fft=n_fft,
             n_mels=n_mels,
             hop_length=hop_length,
             fmin=fmin,
             fmax=fmax,
             sr=sample_rate,
-            # trainable_mel=True,
+            trainable_mel=True,
             # trainable_STFT=True,
         )
         print(self.spec_layer)
@@ -81,12 +88,9 @@ class TileNet(pl.LightningModule):
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(256, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(512, num_blocks[3], stride=2)
-        self.layer5 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
+        self.layer3 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
         self.pool = lambda x: F.avg_pool2d(x, 4)
         self.flatten = lambda x: x.view(x.size(0), -1)
-        self.fc1 = nn.Linear(self.z_dim * self.seconds, self.z_dim, bias=False)
 
     def _make_layer(self, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -97,37 +101,33 @@ class TileNet(pl.LightningModule):
         return nn.Sequential(*layers)
 
     def encode(self, x):
-        # add a little bit of noise to the audio, because the 0s cause the loss
-        # to go to nan
-        x = torch.randn_like(x) * 0.05 + x
+        # add random noise for numerical stability
+        # x = torch.randn_like(x) * 0.1 + x
         x = self.spec_layer(x)
         x = self.conv1(x.unsqueeze(1))
         x = F.relu(self.bn1(x))
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.layer5(x)
+        x = self.pool(x)
         x = self.pool(x)
         x = self.flatten(x)
-        x = F.relu(self.fc1(x))
+        # note, if we change the number of mels, this can cause some issues
+        assert x.shape[1] == self.z_dim, f"output dimension is wrong: {x.shape}"
         return x
 
     def forward(self, x):
         return self.encode(x)
 
     def triplet_loss(self, z_p, z_n, z_d, margin, l2):
-        l_n = torch.sqrt(((z_p - z_n) ** 2).sum(dim=1))
-        l_d = -torch.sqrt(((z_p - z_d) ** 2).sum(dim=1))
-        l_nd = l_n + l_d
-        loss = F.relu(l_n + l_d + margin)
-        l_n = torch.mean(l_n)
-        l_d = torch.mean(l_d)
-        l_nd = torch.mean(l_n + l_d)
-        loss = torch.mean(loss)
-        if l2 != 0:
-            loss += l2 * (torch.norm(z_p) + torch.norm(z_n) + torch.norm(z_d))
-        return loss, l_n, l_d, l_nd
+        l_n = torch.norm(z_p - z_n, dim=1)
+        l_d = torch.norm(z_p - z_d, dim=1)
+        l_nd = l_n - l_d
+        penalty = (
+            torch.norm(z_p, dim=1) + torch.norm(z_n, dim=1) + torch.norm(z_d, dim=1)
+        )
+        loss = torch.mean(F.relu(l_nd + margin) + l2 * penalty)
+        return loss, torch.mean(l_n), torch.mean(l_d), torch.mean(l_nd)
 
     def loss(self, patch, neighbor, distant, margin=50, l2=0.01):
         """
