@@ -1,3 +1,6 @@
+from datetime import timedelta
+from pathlib import Path
+
 import click
 import pandas as pd
 import pytorch_lightning as pl
@@ -5,10 +8,9 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchsummary import summary
-from pathlib import Path
-from datetime import timedelta
 
 from birdclef.models.embedding import datasets, tilenet
+
 
 # https://www.pytorchlightning.ai/blog/3-simple-tricks-that-will-change-the-way-you-debug-pytorch
 # TODO: add this as a proper test

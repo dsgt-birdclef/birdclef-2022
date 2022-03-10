@@ -89,3 +89,11 @@ amount of noise to the input signal before it is passed into the the spectrogram
 layer. We choose to stick with single precision layers (32 bit floats) due to
 numerical stability. Despite this choice, we still see the loss turn into NaN on
 occassion.
+
+After training the embedding, we train a classifier on some soundscapes from 2021. This is already conveniently labeled for us, so we can quickly get up to
+speed.
+
+```
+python -m birdclef.workflows.nocall fit-soundscape `
+    data/intermediate/2022-03-09-lgb-test-01,txt
+```

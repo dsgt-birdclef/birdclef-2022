@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="birdclef",
-    version="0.3.1",
+    version="0.4.0",
     description="Utilities for birdclef",
     author="Anthony Miyaguchi",
     author_email="acmiyaguchi@gmail.com",
@@ -21,5 +21,6 @@ setuptools.setup(
         "nnAudio",
         "pytorch-lightning",
         "torch-summary",
+        "lightgbm",
     ],
 )
