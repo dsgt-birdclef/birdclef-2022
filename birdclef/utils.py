@@ -29,15 +29,18 @@ def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 320
     y, sr = librosa.load(input_path.as_posix(), sr=sr)
     pad_size = int(np.ceil(sr * duration / 2))
     y_pad = np.pad(y, ((pad_size, pad_size)), "constant", constant_values=0)
-    length = sr * duration
+
+    # now get offsets relative to the sample rate
+    length = duration * sr
     offset = int(offset * sr)
+
     # check for left, mid, and right conditions
     if y.shape[0] < length:
         offset = (y_pad.shape[0] // 2) - pad_size
     elif offset <= 0:
-        offset = 0
-    elif offset >= y.shape[0]:
-        offset = y.shape[0]
+        offset = pad_size
+    elif offset + length >= y.shape[0]:
+        offset = y.shape[0] - pad_size - length
     else:
         pass
 

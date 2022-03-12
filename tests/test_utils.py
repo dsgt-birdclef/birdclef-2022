@@ -2,6 +2,7 @@ import numpy as np
 import soundfile as sf
 import pytest
 from birdclef.utils import load_audio
+import matplotlib.pyplot as plt
 
 
 @pytest.fixture
@@ -39,3 +40,5 @@ def test_load_audio_short_centered(tone_short, sr):
     y = load_audio(tone_short, 0, duration=duration)
     assert y.shape[0] == length
     assert (y == 0.0).sum() > 0
+    assert (y[:sr] > 0).sum() == 0
+    assert (y[-sr:] > 0).sum() == 0
