@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import librosa
 import numpy as np
-from pathlib import Path
 
 
 def cens_per_sec(sample_rate, target):

@@ -112,3 +112,14 @@ python -m birdclef.workflows.label_studio train-list `
     --pattern birdclef-2022/train_audio/skylar/* `
     data/intermediate/studio/skylar.txt
 ```
+
+Annotating all of the audio files for a single species would be much too time
+consuming. Instead, we will instead just annotate motifs from across all
+species. We can seed this process by classifying calls into call or no call. By
+improving our no-call classifier, we can start to build a much larger repository
+of positive examples.
+
+
+``bash
+python -m birdclef.workflows.motif extract-primary-motif
+```

@@ -12,6 +12,7 @@ import click
 import librosa
 import numpy as np
 import pandas as pd
+import soundfile as sf
 import tqdm
 from simple import simple_fast
 
@@ -234,7 +235,7 @@ def generate_triplets(input, output, samples):
     res.to_parquet(dst)
 
 
-def _extract_sample(
+def _extract_triplet(
     dataset_root: Path, output: Path, row: pd.Series, duration: int = 7
 ):
     # we get to write out several rows
@@ -272,7 +273,54 @@ def extract_triplets(input, dataset_root, output):
     # This duplicates some effort, so it would be nice to come back and refactor.
     with Pool(12) as p:
         p.map(
-            partial(_extract_sample, Path(dataset_root), Path(output)),
+            partial(_extract_triplet, Path(dataset_root), Path(output)),
+            tqdm.tqdm([row for _, row in df.iterrows()], total=df.shape[0]),
+            chunksize=1,
+        )
+
+
+def _extract_primary_motif(
+    dataset_root: Path, output: Path, row: pd.Series, duration: int = 5
+):
+    input_path = dataset_root / row.source_name
+    output_path = output / input_path.parent.name / input_path.name
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.exists():
+        # skip this if it already exists
+        return
+    sr = 32000
+    y = load_audio(
+        input_path, 0 if np.isnan(row.motif_0) else row.motif_0, duration, sr
+    )
+    sf.write(output_path, y, sr, format="ogg", subtype="vorbis")
+
+
+@motif.command()
+@click.option(
+    "--input",
+    type=click.Path(exists=True, dir_okay=False),
+    default=ROOT / "data/intermediate/2022-02-26-motif-consolidated.parquet",
+)
+@click.option(
+    "--dataset-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=ROOT / "data/raw/birdclef-2022",
+)
+@click.option(
+    "--output",
+    type=click.Path(file_okay=False),
+    default=ROOT / "data/intermediate/2022-03-12-extracted-primary-motif",
+)
+def extract_primary_motif(input, dataset_root, output):
+    df = pd.read_parquet(input)
+    print(df)
+    Path(output).mkdir(parents=True, exist_ok=True)
+
+    # For each of these files, read out the audio and write it out to a file.
+    # This duplicates some effort, so it would be nice to come back and refactor.
+    with Pool(12) as p:
+        p.map(
+            partial(_extract_primary_motif, Path(dataset_root), Path(output)),
             tqdm.tqdm([row for _, row in df.iterrows()], total=df.shape[0]),
             chunksize=1,
         )
