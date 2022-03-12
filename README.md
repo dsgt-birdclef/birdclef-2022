@@ -97,3 +97,18 @@ speed.
 python -m birdclef.workflows.nocall fit-soundscape `
     data/intermediate/2022-03-09-lgb-test-01,txt
 ```
+
+## Label Studio
+
+```bash
+pipx install label-studio
+label-studio
+
+# in a new directory
+npm install http-server -g
+http-server -p 8000 --cors .\data\raw\
+
+python -m birdclef.workflows.label_studio train-list `
+    --pattern birdclef-2022/train_audio/skylar/* `
+    data/intermediate/studio/skylar.txt
+```
