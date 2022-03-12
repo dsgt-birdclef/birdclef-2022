@@ -15,7 +15,7 @@ import pandas as pd
 import tqdm
 from simple import simple_fast
 
-from birdclef.utils import cens_per_sec
+from birdclef.utils import cens_per_sec, load_audio
 
 ROOT = Path(__file__).parent.parent.parent
 
@@ -234,27 +234,6 @@ def generate_triplets(input, output, samples):
     res.to_parquet(dst)
 
 
-def _load_audio(input_path: Path, offset: int, duration: int = 7, sr: int = 32000):
-    # offset is the center point
-    y, sr = librosa.load(input_path.as_posix(), sr=sr)
-    pad_size = int(np.ceil(sr * duration / 2))
-    y_pad = np.pad(y, ((pad_size, pad_size)), "constant", constant_values=0)
-    length = sr * duration
-    offset = offset * sr
-    # check for left, mid, and right conditions
-    if y.shape[0] < length:
-        offset = (y_pad.shape[0] // 2) - pad_size
-    elif offset <= 0:
-        offset = 0
-    elif offset >= y.shape[0]:
-        offset = y.shape[0]
-    else:
-        pass
-
-    y_trunc = y_pad[offset : offset + length]
-    return np.resize(np.moveaxis(y_trunc, -1, 0), length)
-
-
 def _extract_sample(
     dataset_root: Path, output: Path, row: pd.Series, duration: int = 7
 ):
@@ -268,7 +247,7 @@ def _extract_sample(
         if output_path.exists():
             # skip this if it already exists
             continue
-        y = _load_audio(input_path, offset, duration)
+        y = load_audio(input_path, offset, duration)
         np.save(output_path.as_posix(), y)
 
 

@@ -1,3 +1,8 @@
+import librosa
+import numpy as np
+from pathlib import Path
+
+
 def cens_per_sec(sample_rate, target):
     """Ensure this value is a multiple of 2**6"""
     return (sample_rate // (target * (2**6))) * (2**6)
@@ -17,3 +22,24 @@ def compute_offset(index, window_size, cens_total, data_total, window_extra=0):
     end = (index + window_size + window_extra) / (cens_total + window_size)
     offset = (window_size / 2) / (cens_total + window_size)
     return int((start + offset) * data_total), int((end + offset) * data_total)
+
+
+def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 32000):
+    # offset is the center point
+    y, sr = librosa.load(input_path.as_posix(), sr=sr)
+    pad_size = int(np.ceil(sr * duration / 2))
+    y_pad = np.pad(y, ((pad_size, pad_size)), "constant", constant_values=0)
+    length = sr * duration
+    offset = int(offset * sr)
+    # check for left, mid, and right conditions
+    if y.shape[0] < length:
+        offset = (y_pad.shape[0] // 2) - pad_size
+    elif offset <= 0:
+        offset = 0
+    elif offset >= y.shape[0]:
+        offset = y.shape[0]
+    else:
+        pass
+
+    y_trunc = y_pad[offset : offset + length]
+    return np.resize(np.moveaxis(y_trunc, -1, 0), length)
