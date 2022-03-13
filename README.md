@@ -95,7 +95,21 @@ speed.
 
 ```
 python -m birdclef.workflows.nocall fit-soundscape `
-    data/intermediate/2022-03-09-lgb-test-01,txt
+    data/intermediate/2022-03-09-lgb-test-01.txt
+```
+
+However, we find a bug in the training method, so we'll retrain a new embedding.
+
+```bash
+python -m birdclef.workflows.motif extract-triplets `
+    data/intermediate/2022-02-26-motif-triplets-5e+05.parquet `
+    --output data/intermediate/2022-03-12-motif-triplets-5e+
+
+python -m birdclef.workflows.embed fit `
+    .\data\intermediate\2022-02-26-motif-triplets-5e+05.parquet `
+    .\data\intermediate\2022-03-12-motif-triplets-5e+05
+
+tensorboard --logdir data/intermediate/embedding
 ```
 
 ## Label Studio
@@ -119,7 +133,6 @@ species. We can seed this process by classifying calls into call or no call. By
 improving our no-call classifier, we can start to build a much larger repository
 of positive examples.
 
-
-``bash
+```bash
 python -m birdclef.workflows.motif extract-primary-motif
 ```

@@ -262,7 +262,7 @@ def _extract_triplet(
 @click.option(
     "--output",
     type=click.Path(file_okay=False),
-    default=ROOT / "data/intermediate/2022-03-02-extracted-triplets",
+    default=ROOT / "data/intermediate/2022-03-12-extracted-triplets",
 )
 def extract_triplets(input, dataset_root, output):
     df = pd.read_parquet(input)
