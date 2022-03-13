@@ -95,7 +95,11 @@ speed.
 
 ```
 python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_1/checkpoints/epoch=2-step=10872.ckpt `
     data/intermediate/2022-03-09-lgb-test-01.txt
+
+Early stopping, best iteration is: [35]
+cv_agg's auc: 0.784049 + 0.0216534
 ```
 
 However, we find a bug in the training method, so we'll retrain a new embedding.
@@ -110,7 +114,16 @@ python -m birdclef.workflows.embed fit `
     .\data\intermediate\2022-03-12-motif-triplets-5e+05
 
 tensorboard --logdir data/intermediate/embedding
+
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    data/intermediate/2022-03-12-lgb-test-01.txt
+
+Early stopping, best iteration is: [34]
+cv_agg's auc: 0.755708 + 0.0165101
 ```
+
+The results are considerably worse, for some reason...
 
 ## Label Studio
 
