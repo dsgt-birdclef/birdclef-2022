@@ -123,7 +123,15 @@ Early stopping, best iteration is: [34]
 cv_agg's auc: 0.755708 + 0.0165101
 ```
 
-The results are considerably worse, for some reason...
+The results are considerably worse, for some reason. Since we stopped early,
+let's continue to train for another day or so to see if this improves a bit.
+
+```bash
+python -m birdclef.workflows.embed fit `
+    .\data\intermediate\2022-02-26-motif-triplets-5e+05.parquet `
+    .\data\intermediate\2022-03-12-motif-triplets-5e+05 `
+    --checkpoint version_2/checkpoints/epoch=2-step=10849.ckpt
+```
 
 ## Label Studio
 

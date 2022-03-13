@@ -73,6 +73,8 @@ def model_summary(metadata, dataset_dir, dim, n_mels):
 )
 @click.option("--limit-train-batches", type=int, default=None)
 @click.option("--limit-val-batches", type=int, default=None)
+@click.option("--max-epochs", type=int, default=20)
+@click.option("--checkpoint", type=str)
 def fit(
     metadata,
     dataset_dir,
@@ -82,6 +84,8 @@ def fit(
     root_dir,
     limit_train_batches,
     limit_val_batches,
+    max_epochs,
+    checkpoint,
 ):
     root_dir = Path(root_dir)
     metadata_df = pd.read_parquet(metadata)
@@ -94,7 +98,12 @@ def fit(
         batch_size=100,
         num_workers=6,
     )
-    model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
+    if checkpoint:
+        model = tilenet.TileNet.load_from_checkpoint(
+            root_dir / name / checkpoint, z_dim=dim, n_mels=n_mels
+        )
+    else:
+        model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
 
     trainer = pl.Trainer(
         gpus=-1,
@@ -103,14 +112,15 @@ def fit(
         # returned nan values in its 0th output.
         # precision=16,
         # auto_scale_batch_size="binsearch",
-        auto_lr_find=True,
+        # auto_lr_find=True,
         default_root_dir=root_dir / "root",
         logger=TensorBoardLogger(root_dir, name=name, log_graph=True),
         limit_train_batches=limit_train_batches or 1.0,
         limit_val_batches=limit_val_batches or 1.0,
         detect_anomaly=True,
+        max_epochs=max_epochs,
         callbacks=[
-            EarlyStopping(monitor="val_loss", mode="min"),
+            # EarlyStopping(monitor="val_loss", mode="min"),
             # NOTE: need to figure out how to change the model so that it
             # actually passes this batch gradient condition.
             # CheckBatchGradient(),
@@ -123,7 +133,7 @@ def fit(
         ],
         # profiler="simple",
     )
-    trainer.tune(model, data_module)
+    # trainer.tune(model, data_module)
     print(f"batch size: {data_module.batch_size}, lr: {model.lr}")
     summary(model, model.example_input_array)
     trainer.fit(model, data_module)
