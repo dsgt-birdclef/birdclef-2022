@@ -94,7 +94,7 @@ After training the embedding, we train a classifier on some soundscapes from 202
 speed.
 
 ```
-python -m birdclef.workflows.nocall fit-soundscape `
+python -m birdclef.workflows.nocall fit-soundscape-cv `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_1/checkpoints/epoch=2-step=10872.ckpt `
     data/intermediate/2022-03-09-lgb-test-01.txt
 
@@ -115,7 +115,7 @@ python -m birdclef.workflows.embed fit `
 
 tensorboard --logdir data/intermediate/embedding
 
-python -m birdclef.workflows.nocall fit-soundscape `
+python -m birdclef.workflows.nocall fit-soundscape-cv `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     data/intermediate/2022-03-12-lgb-test-01.txt
 
@@ -133,6 +133,12 @@ python -m birdclef.workflows.embed fit `
     --checkpoint version_2/checkpoints/epoch=2-step=10849.ckpt
 ```
 
+```
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    data/intermediate/2022-03-12-lgb.txt
+```
+
 ## Label Studio
 
 ```bash
@@ -140,8 +146,7 @@ pipx install label-studio
 label-studio
 
 # in a new directory
-npm install http-server -g
-http-server -p 8000 --cors .\data\raw\
+docker-compose up
 
 python -m birdclef.workflows.label_studio train-list `
     --pattern birdclef-2022/train_audio/skylar/* `
@@ -156,4 +161,9 @@ of positive examples.
 
 ```bash
 python -m birdclef.workflows.motif extract-primary-motif
+
+python -m birdclef.workflows.label_studio motif-list `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    --nocall-params data/intermediate/2022-03-12-lgb.txt `
+    data/intermediate/studio/motif.json
 ```
