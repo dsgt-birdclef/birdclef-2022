@@ -131,7 +131,18 @@ python -m birdclef.workflows.embed fit `
     .\data\intermediate\2022-02-26-motif-triplets-5e+05.parquet `
     .\data\intermediate\2022-03-12-motif-triplets-5e+05 `
     --checkpoint version_2/checkpoints/epoch=2-step=10849.ckpt
+
+python -m birdclef.workflows.nocall fit-soundscape-cv `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_3/checkpoints/epoch=5-step=24488.ckpt `
+    data/intermediate/2022-03-12-lgb-test-02.txt
+
+Early stopping, best iteration is: [32]
+cv_agg's auc: 0.759764 + 0.0268462
 ```
+
+It's seriously disappointing that hitting exit early did not capture any of the
+work in the 10 iterations since the last checkpoint. And again, the cv scores
+are fairly low.
 
 ```
 python -m birdclef.workflows.nocall fit-soundscape `
