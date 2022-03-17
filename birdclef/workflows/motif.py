@@ -12,10 +12,11 @@ import click
 import librosa
 import numpy as np
 import pandas as pd
+import soundfile as sf
 import tqdm
 from simple import simple_fast
 
-from birdclef.utils import cens_per_sec
+from birdclef.utils import cens_per_sec, load_audio
 
 ROOT = Path(__file__).parent.parent.parent
 
@@ -234,28 +235,7 @@ def generate_triplets(input, output, samples):
     res.to_parquet(dst)
 
 
-def _load_audio(input_path: Path, offset: int, duration: int = 7, sr: int = 32000):
-    # offset is the center point
-    y, sr = librosa.load(input_path.as_posix(), sr=sr)
-    pad_size = int(np.ceil(sr * duration / 2))
-    y_pad = np.pad(y, ((pad_size, pad_size)), "constant", constant_values=0)
-    length = sr * duration
-    offset = offset * sr
-    # check for left, mid, and right conditions
-    if y.shape[0] < length:
-        offset = (y_pad.shape[0] // 2) - pad_size
-    elif offset <= 0:
-        offset = 0
-    elif offset >= y.shape[0]:
-        offset = y.shape[0]
-    else:
-        pass
-
-    y_trunc = y_pad[offset : offset + length]
-    return np.resize(np.moveaxis(y_trunc, -1, 0), length)
-
-
-def _extract_sample(
+def _extract_triplet(
     dataset_root: Path, output: Path, row: pd.Series, duration: int = 7
 ):
     # we get to write out several rows
@@ -268,7 +248,7 @@ def _extract_sample(
         if output_path.exists():
             # skip this if it already exists
             continue
-        y = _load_audio(input_path, offset, duration)
+        y = load_audio(input_path, offset, duration)
         np.save(output_path.as_posix(), y)
 
 
@@ -282,7 +262,7 @@ def _extract_sample(
 @click.option(
     "--output",
     type=click.Path(file_okay=False),
-    default=ROOT / "data/intermediate/2022-03-02-extracted-triplets",
+    default=ROOT / "data/intermediate/2022-03-12-extracted-triplets",
 )
 def extract_triplets(input, dataset_root, output):
     df = pd.read_parquet(input)
@@ -293,7 +273,54 @@ def extract_triplets(input, dataset_root, output):
     # This duplicates some effort, so it would be nice to come back and refactor.
     with Pool(12) as p:
         p.map(
-            partial(_extract_sample, Path(dataset_root), Path(output)),
+            partial(_extract_triplet, Path(dataset_root), Path(output)),
+            tqdm.tqdm([row for _, row in df.iterrows()], total=df.shape[0]),
+            chunksize=1,
+        )
+
+
+def _extract_primary_motif(
+    dataset_root: Path, output: Path, row: pd.Series, duration: int = 5
+):
+    input_path = dataset_root / row.source_name
+    output_path = output / input_path.parent.name / input_path.name
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.exists():
+        # skip this if it already exists
+        return
+    sr = 32000
+    y = load_audio(
+        input_path, 0 if np.isnan(row.motif_0) else row.motif_0, duration, sr
+    )
+    sf.write(output_path, y, sr, format="ogg", subtype="vorbis")
+
+
+@motif.command()
+@click.option(
+    "--input",
+    type=click.Path(exists=True, dir_okay=False),
+    default=ROOT / "data/intermediate/2022-02-26-motif-consolidated.parquet",
+)
+@click.option(
+    "--dataset-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=ROOT / "data/raw/birdclef-2022",
+)
+@click.option(
+    "--output",
+    type=click.Path(file_okay=False),
+    default=ROOT / "data/intermediate/2022-03-12-extracted-primary-motif",
+)
+def extract_primary_motif(input, dataset_root, output):
+    df = pd.read_parquet(input)
+    print(df)
+    Path(output).mkdir(parents=True, exist_ok=True)
+
+    # For each of these files, read out the audio and write it out to a file.
+    # This duplicates some effort, so it would be nice to come back and refactor.
+    with Pool(12) as p:
+        p.map(
+            partial(_extract_primary_motif, Path(dataset_root), Path(output)),
             tqdm.tqdm([row for _, row in df.iterrows()], total=df.shape[0]),
             chunksize=1,
         )

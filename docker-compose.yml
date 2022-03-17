@@ -1,0 +1,9 @@
+version: "3.9"
+services:
+  static:
+    image: nginx:stable
+    volumes:
+      - ./data:/app
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "8000:8000"

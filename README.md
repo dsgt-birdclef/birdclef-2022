@@ -94,6 +94,90 @@ After training the embedding, we train a classifier on some soundscapes from 202
 speed.
 
 ```
-python -m birdclef.workflows.nocall fit-soundscape `
-    data/intermediate/2022-03-09-lgb-test-01,txt
+python -m birdclef.workflows.nocall fit-soundscape-cv `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_1/checkpoints/epoch=2-step=10872.ckpt `
+    data/intermediate/2022-03-09-lgb-test-01.txt
+
+Early stopping, best iteration is: [35]
+cv_agg's auc: 0.784049 + 0.0216534
 ```
+
+However, we find a bug in the training method, so we'll retrain a new embedding.
+
+```bash
+python -m birdclef.workflows.motif extract-triplets `
+    data/intermediate/2022-02-26-motif-triplets-5e+05.parquet `
+    --output data/intermediate/2022-03-12-motif-triplets-5e+
+
+python -m birdclef.workflows.embed fit `
+    .\data\intermediate\2022-02-26-motif-triplets-5e+05.parquet `
+    .\data\intermediate\2022-03-12-motif-triplets-5e+05
+
+tensorboard --logdir data/intermediate/embedding
+
+python -m birdclef.workflows.nocall fit-soundscape-cv `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    data/intermediate/2022-03-12-lgb-test-01.txt
+
+Early stopping, best iteration is: [34]
+cv_agg's auc: 0.755708 + 0.0165101
+```
+
+The results are considerably worse, for some reason. Since we stopped early,
+let's continue to train for another day or so to see if this improves a bit.
+
+```bash
+python -m birdclef.workflows.embed fit `
+    .\data\intermediate\2022-02-26-motif-triplets-5e+05.parquet `
+    .\data\intermediate\2022-03-12-motif-triplets-5e+05 `
+    --checkpoint version_2/checkpoints/epoch=2-step=10849.ckpt
+
+python -m birdclef.workflows.nocall fit-soundscape-cv `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_3/checkpoints/epoch=5-step=24488.ckpt `
+    data/intermediate/2022-03-12-lgb-test-02.txt
+
+Early stopping, best iteration is: [32]
+cv_agg's auc: 0.759764 + 0.0268462
+```
+
+It's seriously disappointing that hitting exit early did not capture any of the
+work in the 10 iterations since the last checkpoint. And again, the cv scores
+are fairly low.
+
+```
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    data/intermediate/2022-03-12-lgb.txt
+```
+
+## Label Studio
+
+```bash
+pipx install label-studio
+label-studio
+
+# in a new directory
+docker-compose up
+
+python -m birdclef.workflows.label_studio train-list `
+    --pattern birdclef-2022/train_audio/skylar/* `
+    data/intermediate/studio/skylar.txt
+```
+
+Annotating all of the audio files for a single species would be much too time
+consuming. Instead, we will instead just annotate motifs from across all
+species. We can seed this process by classifying calls into call or no call. By
+improving our no-call classifier, we can start to build a much larger repository
+of positive examples.
+
+```bash
+python -m birdclef.workflows.motif extract-primary-motif
+
+python -m birdclef.workflows.label_studio motif-list `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    --nocall-params data/intermediate/2022-03-12-lgb.txt `
+    data/intermediate/studio/motif.json
+```
+
+Labeling is a laborious process, but many of the samples seem to be working
+okay.
