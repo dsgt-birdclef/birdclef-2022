@@ -2,6 +2,7 @@ from pathlib import Path
 
 import librosa
 import numpy as np
+import torch
 
 
 def cens_per_sec(sample_rate, target):
@@ -47,3 +48,13 @@ def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 320
 
     y_trunc = y_pad[offset : offset + length]
     return np.resize(np.moveaxis(y_trunc, -1, 0), length)
+
+
+def transform_input(model, device, X, batch_size=50):
+    dataset = torch.utils.data.TensorDataset(torch.from_numpy(X))
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
+    res = []
+    for batch in dataloader:
+        # note that we can't use the trainer because the batches end up being lists
+        res.append(model(batch[0].to(device)).cpu().detach().numpy())
+    return np.concatenate(res)

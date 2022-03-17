@@ -9,21 +9,12 @@ from sklearn.model_selection import train_test_split
 
 from birdclef.datasets import soundscape
 from birdclef.models.embedding.tilenet import TileNet
+from birdclef.utils import transform_input
 
 
 @click.group()
 def nocall():
     pass
-
-
-def transform_input(model, device, X):
-    dataset = torch.utils.data.TensorDataset(torch.from_numpy(X))
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=50)
-    res = []
-    for batch in dataloader:
-        # note that we can't use the trainer because the batches end up being lists
-        res.append(model(batch[0].to(device)).cpu().detach().numpy())
-    return np.concatenate(res)
 
 
 @nocall.command()
