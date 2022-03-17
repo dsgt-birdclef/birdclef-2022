@@ -178,3 +178,6 @@ python -m birdclef.workflows.label_studio motif-list `
     --nocall-params data/intermediate/2022-03-12-lgb.txt `
     data/intermediate/studio/motif.json
 ```
+
+Labeling is a laborious process, but many of the samples seem to be working
+okay.
