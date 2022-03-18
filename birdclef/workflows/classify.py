@@ -2,7 +2,6 @@ import datetime
 import json
 import pickle
 import shutil
-from importlib.resources import read_text
 from pathlib import Path
 
 import click
@@ -12,6 +11,7 @@ import pandas as pd
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
+from birdclef.datasets import soundscape
 from birdclef.models import classifier
 from birdclef.utils import transform_input
 
@@ -121,17 +121,48 @@ def train(
 @classify.command()
 @click.argument("output")
 @click.option(
+    "--birdclef-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/raw/birdclef-2022"),
+)
+@click.option(
     "--classifier-source", required=True, type=click.Path(exists=True, file_okay=False)
 )
-def predict(output, classifier_source):
+def predict(output, birdclef_root, classifier_source):
     classifier_source = Path(classifier_source)
     with open(classifier_source / "submit_classifier.pkl", "rb") as fp:
-        model = pickle.load(fp)
+        cls_model = pickle.load(fp)
 
     metadata = json.loads((classifier_source / "metadata.json").read_text())
+    print(metadata)
     model, device = classifier.load_embedding_model(
         classifier_source / "embedding.ckpt", metadata["embedding_dim"]
     )
+
+    test_df = pd.read_csv(Path(birdclef_root) / "test.csv")
+    print(test_df.head())
+
+    res = []
+    for df in soundscape.load_test_soundscapes(
+        Path(birdclef_root) / "test_soundscapes"
+    ):
+        X_raw = np.stack(df.x.values)
+        X = transform_input(model, device, X_raw)
+        y_pred = cls_model.classifier.predict(X)
+        # now somehow have to transform this for the expected output
+        # TODO: perform a multiclass prediction (one-vs-all?) instead of taking
+        # the most likely prediction
+        y_pred = cls_model.label_encoder.inverse_transform(np.argmax(y_pred, axis=1))
+        df["bird"] = y_pred
+        df["target"] = True
+        res.append(df[["file_id", "bird", "end_time", "target"]])
+    res_df = pd.concat(res)
+    submission_df = test_df.merge(
+        res_df[res_df.bird != "other"], on=["file_id", "bird", "end_time"], how="left"
+    ).fillna(False)
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    submission_df[["row_id", "target"]].to_csv(output, index=False)
 
 
 if __name__ == "__main__":

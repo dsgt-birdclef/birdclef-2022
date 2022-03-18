@@ -50,6 +50,27 @@ def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 320
     return np.resize(np.moveaxis(y_trunc, -1, 0), length)
 
 
+def slice_seconds(data, sample_rate, seconds=5, pad_seconds=0):
+    # return 2d array of the original data
+    n = len(data)
+    k = sample_rate * seconds
+    pad = sample_rate * pad_seconds
+    indexes = np.array(
+        [np.arange(i, i + k + pad) for i in range(0, n, k) if i + k + pad <= n]
+    )
+    indexed = data[indexes]
+    return list(zip((np.arange(len(indexed)) + 1) * seconds, indexed))
+
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst.
+
+    https://stackoverflow.com/a/312464
+    """
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
+
+
 def transform_input(model, device, X, batch_size=50):
     dataset = torch.utils.data.TensorDataset(torch.from_numpy(X))
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)

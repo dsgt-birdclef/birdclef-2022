@@ -7,7 +7,7 @@ import torch
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
-from birdclef.datasets import soundscape
+from birdclef.datasets import soundscape_2021
 from birdclef.models.embedding.tilenet import TileNet
 from birdclef.utils import transform_input
 
@@ -34,7 +34,7 @@ def nocall():
 )
 @click.option("--dim", type=int, default=64)
 def fit_soundscape_cv(output, birdclef_root, embedding_checkpoint, dim):
-    df = soundscape.load(Path(birdclef_root))
+    df = soundscape_2021.load(Path(birdclef_root))
     model = TileNet.load_from_checkpoint(embedding_checkpoint, z_dim=dim)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -89,7 +89,7 @@ def fit_soundscape_cv(output, birdclef_root, embedding_checkpoint, dim):
 )
 @click.option("--dim", type=int, default=64)
 def fit_soundscape(output, birdclef_root, embedding_checkpoint, dim):
-    df = soundscape.load(Path(birdclef_root))
+    df = soundscape_2021.load(Path(birdclef_root))
     model = TileNet.load_from_checkpoint(embedding_checkpoint, z_dim=dim)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

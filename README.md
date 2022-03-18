@@ -178,11 +178,12 @@ python -m birdclef.workflows.classify train `
     --motif-root data/intermediate/2022-03-12-extracted-primary-motif `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     --filter-set data/raw/birdclef-2022/scored_birds.json `
-    data/intermediate/2022-03-18-classify
+    data/processed/model/2022-03-18-v1
 
 python -m birdclef.workflows.classify predict `
-    --classifier-source data/intermediate/2022-03-18-classify `
-    data/processed/2022-03-18-predict
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-03-18-v1 `
+    data/processed/submission/2022-03-18-v1.csv
 ```
 
 ### Label Studio

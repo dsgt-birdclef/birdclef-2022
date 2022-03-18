@@ -11,7 +11,7 @@ import torch
 import tqdm
 from sklearn.model_selection import train_test_split
 
-from birdclef.datasets import soundscape
+from birdclef.datasets import soundscape_2021
 from birdclef.models.embedding.tilenet import TileNet
 
 
@@ -50,7 +50,7 @@ def load_motif(
 
 def load_soundscape_noise(birdclef_2021_root: Path) -> pd.DataFrame:
     """Load noise from soundscape"""
-    df = soundscape.load(birdclef_2021_root)
+    df = soundscape_2021.load(birdclef_2021_root)
     subset = df[df.y == 0].rename(columns={"x": "data"})
     subset["label"] = "other"
     return subset[["data", "label"]]

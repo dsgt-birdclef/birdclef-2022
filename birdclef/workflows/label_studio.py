@@ -10,6 +10,7 @@ import torch
 import tqdm
 
 from birdclef.models.embedding.tilenet import TileNet
+from birdclef.utils import chunks
 
 from .nocall import transform_input
 
@@ -33,15 +34,6 @@ def train_list(output, prefix, input, pattern):
     Path(output).write_text(
         "\n".join([f"{prefix}/{file.relative_to(input).as_posix()}" for file in files])
     )
-
-
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst.
-
-    https://stackoverflow.com/a/312464
-    """
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
 
 
 def _load_audio(file):
