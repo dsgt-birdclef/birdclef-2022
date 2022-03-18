@@ -174,11 +174,15 @@ final classifier.
 
 ```powershell
 python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
     --motif-root data/intermediate/2022-03-12-extracted-primary-motif `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     --filter-set data/raw/birdclef-2022/scored_birds.json `
-    --limit 100 `
-    data/intermediate/2022-03-18-classify-01.txt
+    data/intermediate/2022-03-18-classify
+
+python -m birdclef.workflows.classify predict `
+    --classifier-source data/intermediate/2022-03-18-classify `
+    data/processed/2022-03-18-predict
 ```
 
 ### Label Studio

@@ -1,4 +1,8 @@
+import datetime
 import json
+import pickle
+import shutil
+from importlib.resources import read_text
 from pathlib import Path
 
 import click
@@ -17,8 +21,15 @@ def classify():
     pass
 
 
+class SubmitClassifier:
+    def __init__(self, label_encoder, onehot_encoder, classifier):
+        self.label_encoder = label_encoder
+        self.onehot_encoder = onehot_encoder
+        self.classifier = classifier
+
+
 @classify.command()
-@click.argument("output")
+@click.argument("output", type=click.Path(exists=False, file_okay=False))
 @click.option(
     "--birdclef-root",
     type=click.Path(exists=True, file_okay=False),
@@ -77,8 +88,6 @@ def train(
     )
     print(f"best number of iterations: {bst.best_iteration}")
 
-    bst.save_model(output, num_iteration=bst.best_iteration)
-
     # TODO: better scoring
     score = f1_score(
         ohe.transform(y_test.reshape(-1, 1)),
@@ -86,6 +95,43 @@ def train(
         average="macro",
     )
     print(f"test score: {score}")
+
+    # write things to disk in a directory to make this as easy as possible to
+    # load
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    model = SubmitClassifier(le, ohe, bst)
+    with open(output / "submit_classifier.pkl", "wb") as fp:
+        pickle.dump(model, fp)
+
+    # copy over the checkpoint file for easy loading
+    shutil.copy(embedding_checkpoint, output / "embedding.ckpt")
+    (output / "metadata.json").write_text(
+        json.dumps(
+            dict(
+                embedding_source=Path(embedding_checkpoint).as_posix(),
+                embedding_dim=dim,
+                created=datetime.datetime.now().isoformat(),
+            ),
+            indent=2,
+        )
+    )
+
+
+@classify.command()
+@click.argument("output")
+@click.option(
+    "--classifier-source", required=True, type=click.Path(exists=True, file_okay=False)
+)
+def predict(output, classifier_source):
+    classifier_source = Path(classifier_source)
+    with open(classifier_source / "submit_classifier.pkl", "rb") as fp:
+        model = pickle.load(fp)
+
+    metadata = json.loads((classifier_source / "metadata.json").read_text())
+    model, device = classifier.load_embedding_model(
+        classifier_source / "embedding.ckpt", metadata["embedding_dim"]
+    )
 
 
 if __name__ == "__main__":
