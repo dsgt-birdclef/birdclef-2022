@@ -1,6 +1,17 @@
 # birclef-2022
 
-## quickstart
+## notes
+
+### papers
+
+- Jean, N., Wang, S., Samar, A., Azzari, G., Lobell, D., & Ermon, S. (2019, July). Tile2vec: Unsupervised representation learning for spatially distributed data. In Proceedings of the AAAI Conference on Artificial Intelligence (Vol. 33, No. 01, pp. 3967-3974). https://arxiv.org/pdf/1805.02855.pdf
+- Silva, D. F., Yeh, C. C. M., Batista, G. E., & Keogh, E. J. (2016, August). SiMPle: Assessing Music Similarity Using Subsequences Joins. In ISMIR (pp. 23-29). https://www.cs.ucr.edu/~eamonn/MP_Music_ISMIR.pdf
+- Silva, D. F., Yeh, C. C. M., Zhu, Y., Batista, G. E., & Keogh, E. (2018). Fast similarity matrix profile for music analysis and exploration. IEEE Transactions on Multimedia, 21(1), 29-38. https://www.cs.ucr.edu/~eamonn/final-fast-similarity-3.pdf
+- Zhang, H., Cisse, M., Dauphin, Y. N., & Lopez-Paz, D. (2017). mixup: Beyond empirical risk minimization. arXiv preprint arXiv:1710.09412.https://arxiv.org/pdf/1710.09412.pdf
+- McFee, B., Raffel, C., Liang, D., Ellis, D. P., McVicar, M., Battenberg, E., & Nieto, O. (2015, July). librosa: Audio and music signal analysis in python. In Proceedings of the 14th python in science conference (Vol. 8, pp. 18-25). https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.701.4288&rep=rep1&type=pdf
+- Cheuk, K. W., Anderson, H., Agres, K., & Herremans, D. (2020). nnaudio: An on-the-fly gpu audio to spectrogram conversion toolbox using 1d convolutional neural networks. IEEE Access, 8, 161981-162003. https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9174990
+
+### motif mining
 
 First we extract the most common motif for every birdcall using simple. We use
 chroma energy normalized statistics (CENS) using a rate of 10 samples a second
@@ -30,6 +41,8 @@ neighbor. The entire matrix profile is made available for further analysis. We
 extract the motifs out into npy files because it is significantly slower to read
 the samples on the fly. The resulting size of the dataset is on the order of
 65GB, for a total of 100k samples.
+
+### triplet formation
 
 The sampling methodology splits the dataset into four partitions.
 
@@ -64,6 +77,8 @@ the audio track in time.
 - https://pytorch-lightning.readthedocs.io/en/latest/starter/converting.html
 - https://towardsdatascience.com/from-pytorch-to-pytorch-lightning-a-gentle-introduction-b371b7caaf09
 
+### training embedding
+
 ```powershell
 python -m birdclef.workflows.embed fit `
     .\data\intermediate\2022-02-26-motif-triplets-1e+03.parquet `
@@ -90,10 +105,12 @@ layer. We choose to stick with single precision layers (32 bit floats) due to
 numerical stability. Despite this choice, we still see the loss turn into NaN on
 occassion.
 
+### no-call classifier
+
 After training the embedding, we train a classifier on some soundscapes from 2021. This is already conveniently labeled for us, so we can quickly get up to
 speed.
 
-```
+```powershell
 python -m birdclef.workflows.nocall fit-soundscape-cv `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_1/checkpoints/epoch=2-step=10872.ckpt `
     data/intermediate/2022-03-09-lgb-test-01.txt
@@ -104,7 +121,7 @@ cv_agg's auc: 0.784049 + 0.0216534
 
 However, we find a bug in the training method, so we'll retrain a new embedding.
 
-```bash
+```powershell
 python -m birdclef.workflows.motif extract-triplets `
     data/intermediate/2022-02-26-motif-triplets-5e+05.parquet `
     --output data/intermediate/2022-03-12-motif-triplets-5e+
@@ -126,7 +143,7 @@ cv_agg's auc: 0.755708 + 0.0165101
 The results are considerably worse, for some reason. Since we stopped early,
 let's continue to train for another day or so to see if this improves a bit.
 
-```bash
+```powershell
 python -m birdclef.workflows.embed fit `
     .\data\intermediate\2022-02-26-motif-triplets-5e+05.parquet `
     .\data\intermediate\2022-03-12-motif-triplets-5e+05 `
@@ -144,13 +161,27 @@ It's seriously disappointing that hitting exit early did not capture any of the
 work in the 10 iterations since the last checkpoint. And again, the cv scores
 are fairly low.
 
-```
+```powershell
 python -m birdclef.workflows.nocall fit-soundscape `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     data/intermediate/2022-03-12-lgb.txt
 ```
 
-## Label Studio
+### submission classifier
+
+We'll use the primary motif from each track as a training example to train the
+final classifier.
+
+```powershell
+python -m birdclef.workflows.classify train `
+    --motif-root data/intermediate/2022-03-12-extracted-primary-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    --limit 100 `
+    data/intermediate/2022-03-18-classify-01.txt
+```
+
+### Label Studio
 
 ```bash
 pipx install label-studio
