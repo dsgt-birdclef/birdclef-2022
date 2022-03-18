@@ -4,6 +4,7 @@ from pathlib import Path
 import click
 import lightgbm as lgb
 import numpy as np
+import pandas as pd
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
@@ -18,6 +19,11 @@ def classify():
 
 @classify.command()
 @click.argument("output")
+@click.option(
+    "--birdclef-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/raw/birdclef-2021"),
+)
 @click.option(
     "--motif-root",
     type=click.Path(exists=True, file_okay=False),
@@ -38,10 +44,20 @@ def classify():
     default=Path("data/raw/birdclef-2022/scored_birds.json"),
 )
 @click.option("--limit", type=int, default=-1)
-def train(output, motif_root, embedding_checkpoint, dim, filter_set, limit):
-    # TODO: loading in batches
+def train(
+    birdclef_root, output, motif_root, embedding_checkpoint, dim, filter_set, limit
+):
     scored_birds = json.loads(Path(filter_set).read_text())
-    df = classifier.load_motif(Path(motif_root), scored_birds=scored_birds, limit=limit)
+    df = pd.concat(
+        [
+            # TODO: loading in batches
+            classifier.load_motif(
+                Path(motif_root), scored_birds=scored_birds, limit=limit
+            ),
+            classifier.load_soundscape_noise(Path(birdclef_root)),
+        ]
+    )
+
     le = LabelEncoder()
     le.fit(df.label)
     ohe = OneHotEncoder()

@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from pathlib import Path
 
 import librosa
@@ -35,12 +36,11 @@ def parse_soundscape(path: Path, sr=32000, window=5) -> pd.DataFrame:
     return df[["row_id", "audio_id", "site", "seconds", "x"]]
 
 
-def load_training_soundscapes(train_root: Path) -> pd.DataFrame:
+def load_training_soundscapes(train_root: Path, parallelism: int = 8) -> pd.DataFrame:
     res = []
     paths = list(train_root.glob("*"))
-    for path in tqdm.tqdm(paths):
-        df = parse_soundscape(path)
-        res.append(df)
+    with Pool(parallelism) as p:
+        res = p.map(parse_soundscape, tqdm.tqdm(paths), chunksize=1)
     return pd.concat(res)
 
 
