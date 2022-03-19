@@ -5,7 +5,6 @@ import shutil
 from pathlib import Path
 
 import click
-import lightgbm as lgb
 import numpy as np
 import pandas as pd
 from sklearn.metrics import f1_score
@@ -19,13 +18,6 @@ from birdclef.utils import transform_input
 @click.group()
 def classify():
     pass
-
-
-class SubmitClassifier:
-    def __init__(self, label_encoder, onehot_encoder, classifier):
-        self.label_encoder = label_encoder
-        self.onehot_encoder = onehot_encoder
-        self.classifier = classifier
 
 
 @classify.command()
@@ -98,7 +90,7 @@ def train(
     # load
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    model = SubmitClassifier(le, ohe, bst)
+    model = classifier.SubmitClassifier(le, ohe, bst)
     with open(output / "submit_classifier.pkl", "wb") as fp:
         pickle.dump(model, fp)
 

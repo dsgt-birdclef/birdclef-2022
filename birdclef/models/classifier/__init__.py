@@ -16,6 +16,15 @@ from birdclef.datasets import soundscape_2021
 from birdclef.models.embedding.tilenet import TileNet
 
 
+class SubmitClassifier:
+    """Class for serialization."""
+
+    def __init__(self, label_encoder, onehot_encoder, classifier):
+        self.label_encoder = label_encoder
+        self.onehot_encoder = onehot_encoder
+        self.classifier = classifier
+
+
 # TODO: only load scored birds
 def _load_motif_row(path: Path, sr: int, scored_birds: "list[str]"):
     label = path.parent.name
