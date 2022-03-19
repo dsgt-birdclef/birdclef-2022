@@ -77,21 +77,19 @@ def train(
     model, device = classifier.load_embedding_model(embedding_checkpoint, dim)
     X_raw = np.stack(df.data.values)
     X = transform_input(model, device, X_raw)
-    y = le.transform(df.label.values)
-
-    train_pair, val_pair, (X_test, y_test) = classifier.train_val_test_split(X, y)
-
-    bst = classifier.train(
-        lgb.Dataset(*train_pair),
-        lgb.Dataset(*val_pair),
-        le.classes_.shape[0],
+    y = (
+        ohe.transform(le.transform(df.label.values).reshape(-1, 1))
+        .toarray()
+        .astype(int)
     )
-    print(f"best number of iterations: {bst.best_iteration}")
 
-    # TODO: better scoring
+    train_pair, (X_test, y_test) = classifier.split(X, y)
+
+    bst = classifier.train(train_pair)
+
     score = f1_score(
-        ohe.transform(y_test.reshape(-1, 1)),
-        ohe.transform(np.argmax(bst.predict(X_test), axis=1).reshape(-1, 1)),
+        y_test,
+        bst.predict(X_test),
         average="macro",
     )
     print(f"test score: {score}")
@@ -149,13 +147,21 @@ def predict(output, birdclef_root, classifier_source):
         X_raw = np.stack(df.x.values)
         X = transform_input(model, device, X_raw)
         y_pred = cls_model.classifier.predict(X)
-        # now somehow have to transform this for the expected output
-        # TODO: perform a multiclass prediction (one-vs-all?) instead of taking
-        # the most likely prediction
-        y_pred = cls_model.label_encoder.inverse_transform(np.argmax(y_pred, axis=1))
-        df["bird"] = y_pred
-        df["target"] = True
-        res.append(df[["file_id", "bird", "end_time", "target"]])
+        res_inner = []
+        for row, pred in zip(df.itertuples(), y_pred):
+            labels = cls_model.label_encoder.inverse_transform(
+                np.nonzero(pred.reshape(-1))
+            )
+            for label in labels:
+                res_inner.append(
+                    {
+                        "file_id": row.file_id,
+                        "bird": label,
+                        "end_time": row.end_time,
+                        "target": True,
+                    }
+                )
+        res.append(pd.DataFrame(res_inner))
     res_df = pd.concat(res)
     submission_df = test_df.merge(
         res_df[res_df.bird != "other"], on=["file_id", "bird", "end_time"], how="left"
