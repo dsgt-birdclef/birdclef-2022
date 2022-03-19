@@ -9,5 +9,8 @@ jupyterlab
 nb_black
 pyspark
 
+# precommit
+pre-commit
+
 # testing
 pytest

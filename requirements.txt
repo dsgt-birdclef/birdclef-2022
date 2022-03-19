@@ -53,6 +53,8 @@ cffi==1.15.0
     # via
     #   argon2-cffi-bindings
     #   soundfile
+cfgv==3.3.1
+    # via pre-commit
 charset-normalizer==2.0.12
     # via
     #   aiohttp
@@ -77,6 +79,8 @@ decorator==5.1.1
     #   librosa
 defusedxml==0.7.1
     # via nbconvert
+distlib==0.3.4
+    # via virtualenv
 entrypoints==0.4
     # via
     #   jupyter-client
@@ -84,6 +88,8 @@ entrypoints==0.4
     #   nbconvert
 executing==0.8.3
     # via stack-data
+filelock==3.6.0
+    # via virtualenv
 fonttools==4.29.1
     # via matplotlib
 frozenlist==1.3.0
@@ -102,6 +108,8 @@ google-auth-oauthlib==0.4.6
     # via tensorboard
 grpcio==1.44.0
     # via tensorboard
+identify==2.4.12
+    # via pre-commit
 idna==3.3
     # via
     #   anyio
@@ -219,6 +227,8 @@ nest-asyncio==1.5.4
     #   notebook
 nnaudio==0.3.1
     # via birdclef
+nodeenv==1.6.0
+    # via pre-commit
 notebook==6.4.8
     # via nbclassic
 numba==0.55.1
@@ -271,11 +281,15 @@ pillow==9.0.1
     #   matplotlib
     #   torchvision
 platformdirs==2.5.1
-    # via black
+    # via
+    #   black
+    #   virtualenv
 pluggy==1.0.0
     # via pytest
 pooch==1.6.0
     # via librosa
+pre-commit==2.17.0
+    # via -r requirements.in
 prometheus-client==0.13.1
     # via
     #   jupyter-server
@@ -337,7 +351,9 @@ pywinpty==1.1.6
     #   jupyter-server
     #   terminado
 pyyaml==6.0
-    # via pytorch-lightning
+    # via
+    #   pre-commit
+    #   pytorch-lightning
 pyzmq==22.3.0
     # via
     #   jupyter-client
@@ -382,6 +398,7 @@ six==1.16.0
     #   grpcio
     #   python-dateutil
     #   resampy
+    #   virtualenv
 sniffio==1.2.0
     # via anyio
 soundfile==0.10.3.post1
@@ -404,6 +421,8 @@ testpath==0.6.0
     # via nbconvert
 threadpoolctl==3.1.0
     # via scikit-learn
+toml==0.10.2
+    # via pre-commit
 tomli==2.0.1
     # via
     #   black
@@ -455,6 +474,8 @@ typing-extensions==4.1.1
     #   torch
 urllib3==1.26.8
     # via requests
+virtualenv==20.13.4
+    # via pre-commit
 wcwidth==0.2.5
     # via prompt-toolkit
 webencodings==0.5.1
