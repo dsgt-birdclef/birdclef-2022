@@ -24,4 +24,8 @@ setuptools.setup(
         "lightgbm",
         "simple-python@git+https://github.com/acmiyaguchi/simple-python.git",
     ],
+    entry_points="""
+        [console_scripts]
+        birdclef=birdclef.workflows:cli
+    """,
 )
