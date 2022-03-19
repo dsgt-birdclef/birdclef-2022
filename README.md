@@ -42,6 +42,35 @@ extract the motifs out into npy files because it is significantly slower to read
 the samples on the fly. The resulting size of the dataset is on the order of
 65GB, for a total of 100k samples.
 
+We come back to this in order to generate motif features for our classifier. We
+start off a naive approach, where we random sample motifs/discords from across
+the entire dataset. This allows us to build from a large set of examples. We
+might want to actually limit these sames to the scored species instead, since
+those examples may be more indicative of real species. We hope that the
+gradient-boosted decision tree will be able to take advantage of distances from
+these examples effectively.
+
+```powershell
+python -m birdclef.workflows.motif extract `
+    --cens-sr 10 `
+    --mp-window 30 `
+    --sample-k 64 `
+    --output 2022-03-18-motif-sample-k-64-v1
+```
+
+And just to check that this has a somewhat diverse cast of chirps, we can create an audio file from it.
+
+```powershell
+python -m birdclef.workflows.motif motif-track `
+    --input data/intermediate/2022-03-18-motif-sample-k-64-v1 `
+    data/intermediate/2022-03-18-motif-sample-k-64-v1-motif.wav
+
+python -m birdclef.workflows.motif motif-track `
+    --input data/intermediate/2022-03-18-motif-sample-k-64-v1 `
+    --index discord_0 `
+    data/intermediate/2022-03-18-motif-sample-k-64-v1-discord.wav
+```
+
 ### triplet formation
 
 The sampling methodology splits the dataset into four partitions.

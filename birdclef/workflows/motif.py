@@ -3,6 +3,7 @@
 This is the first step of the preprocessing pipeline.
 """
 import json
+import random
 import warnings
 from functools import partial
 from multiprocessing import Pool
@@ -16,7 +17,7 @@ import soundfile as sf
 import tqdm
 from simple import simple_fast
 
-from birdclef.utils import cens_per_sec, load_audio
+from birdclef.utils import cens_per_sec, compute_offset, load_audio
 
 ROOT = Path(__file__).parent.parent.parent
 
@@ -38,7 +39,7 @@ def write(input_path, output_path, cens_sr=10, mp_window=50):
             return
 
     # read the audio file and calculate the position of the motif
-    data, sample_rate = librosa.load(input_path, 32000)
+    data, sample_rate = librosa.load(input_path, sr=32000)
     duration = librosa.get_duration(y=data, sr=sample_rate)
     cens = librosa.feature.chroma_cens(
         y=data, sr=sample_rate, hop_length=cens_per_sec(sample_rate, cens_sr)
@@ -54,9 +55,11 @@ def write(input_path, output_path, cens_sr=10, mp_window=50):
         "duration_seconds": round(duration, 2),
         "motif_0": None,
         "motif_1": None,
+        "discord_0": None,
+        "discord_1": None,
     }
     path.mkdir(exist_ok=True, parents=True)
-    if duration < 5:
+    if duration < mp_window / cens_sr:
         # the duration is too short, but let's still write out useful data
         # print(f"{input_path} - duration is too small: {duration}")
         (path / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
@@ -65,12 +68,15 @@ def write(input_path, output_path, cens_sr=10, mp_window=50):
     mp, pi = simple_fast(cens, cens, mp_window)
     motif = np.argmin(mp)
     idx = int(motif), int(pi[motif])
+    discord = np.argmax(mp)
+    idx_discord = int(discord), int(pi[discord])
 
     (path / "metadata.json").write_text(
         json.dumps(
             {
                 **metadata,
                 **{"motif_0": idx[0], "motif_1": idx[1]},
+                **{"discord_0": idx_discord[0], "discord_1": idx_discord[1]},
             },
             indent=2,
         )
@@ -87,8 +93,11 @@ def motif():
 
 @motif.command()
 @click.option("--species", type=str)
-@click.option("--output", type=str, default="2022-02-21-motif")
-def extract(species, dataset):
+@click.option("--output", type=str, default="2022-03-18-motif")
+@click.option("--cens-sr", type=int, default=10)
+@click.option("--mp-window", type=int, default=50)
+@click.option("--sample-k", type=int, default=-1)
+def extract(species, output, cens_sr, mp_window, sample_k):
     rel_root = Path(ROOT / "data/raw/birdclef-2022/train_audio")
     src = rel_root
     if species:
@@ -102,14 +111,68 @@ def extract(species, dataset):
     args = []
     for path in files:
         rel_dir = path.relative_to(rel_root).parent
-        args.append([path, dst / rel_dir, 10, 50])
+        args.append([path, dst / rel_dir, cens_sr, mp_window])
 
-    with Pool(12) as p:
+    if sample_k > 0:
+        args = random.sample(args, sample_k)
+
+    with Pool(8) as p:
         p.starmap(write, tqdm.tqdm(args, total=len(args)), chunksize=1)
 
 
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text())
+
+
+def _load_motif_track(birdclef_root: Path, index: str, row: pd.Series):
+    try:
+        offset, _ = compute_offset(
+            row[index],
+            row.matrix_profile_window,
+            row.duration_cens,
+            row.duration_samples,
+        )
+    except:
+        print(row)
+        offset = 0
+    data, _ = librosa.load(
+        birdclef_root / row.source_name,
+        sr=row.sample_rate,
+        offset=offset / row.sample_rate,
+        duration=3,
+    )
+    return data
+
+
+@motif.command()
+@click.argument("output", type=click.Path(dir_okay=False))
+@click.option("--input", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option(
+    "--birdclef-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/raw/birdclef-2022"),
+)
+@click.option(
+    "--index",
+    type=click.Choice(["motif_0", "motif_1", "discord_0", "discord_1"]),
+    default="motif_0",
+)
+def motif_track(output, input, birdclef_root, index):
+    """Generate a motif track from (sampled) motif metadata"""
+    files = list(Path(input).glob("**/metadata.json"))
+    with Pool(8) as p:
+        data = p.map(_read_json, tqdm.tqdm(files, total=len(files)), chunksize=1)
+    df = pd.DataFrame(data)
+
+    with Pool(8) as p:
+        audio = p.map(
+            partial(_load_motif_track, Path(birdclef_root), index),
+            tqdm.tqdm([row for _, row in df.iterrows()]),
+            chunksize=1,
+        )
+    audio_concat = np.concatenate(audio)
+    print(f"writing out {len(audio)} tracks with {audio_concat.shape} samples")
+    sf.write(output, audio_concat, 32000)
 
 
 @motif.command()
