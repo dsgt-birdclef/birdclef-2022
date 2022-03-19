@@ -7,7 +7,7 @@ setuptools.setup(
     author="Anthony Miyaguchi",
     author_email="acmiyaguchi@gmail.com",
     url="https://github.com/acmiyaguchi/birdclef-2022",
-    packages=["birdclef"],
+    packages=setuptools.find_packages(),
     install_requires=[
         "numpy",
         "pandas",
