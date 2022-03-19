@@ -17,6 +17,17 @@ provider "google" {
 resource "google_storage_bucket" "birdclef-2022" {
   name     = local.project_id
   location = "US"
+  versioning {
+    enabled = true
+  }
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 3
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 output birdclef-2022-bucket {
