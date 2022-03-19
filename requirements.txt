@@ -248,7 +248,6 @@ numpy==1.21.5
     #   resampy
     #   scikit-learn
     #   scipy
-    #   simple-python
     #   tensorboard
     #   torchmetrics
     #   torchvision
@@ -388,7 +387,9 @@ send2trash==1.8.0
     #   jupyter-server
     #   notebook
 simple-python @ git+https://github.com/acmiyaguchi/simple-python.git
-    # via birdclef
+    # via
+    #   -r requirements.in
+    #   birdclef
 six==1.16.0
     # via
     #   absl-py
