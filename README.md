@@ -186,6 +186,20 @@ python -m birdclef.workflows.classify predict `
     data/processed/submission/2022-03-18-v1.csv
 ```
 
+### kaggle submission
+
+See the following two notebooks:
+
+- https://www.kaggle.com/code/acmiyaguchi/model-sync
+- https://www.kaggle.com/code/acmiyaguchi/motif-join-and-embedding
+
+The first notebook downloads any models in the shared GCP bucket
+(`gs://birdclef-2022`). It also downloads the main package in this repository,
+using a private github token.
+
+The second notebook contains the actual code. It simply mounts the output of the
+`model-sync` notebook and calls the `birdclef.workflows.classify` command.
+
 ### Label Studio
 
 ```bash
