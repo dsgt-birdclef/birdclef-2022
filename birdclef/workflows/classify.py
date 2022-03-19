@@ -75,8 +75,14 @@ def train(
         .astype(int)
     )
 
-    train_pair, (X_test, y_test) = classifier.split(X, y)
+    train_pair, (X_test, y_test) = classifier.split(
+        X,
+        y,
+        # not enough examples
+        # stratify=le.transform(df.label)
+    )
 
+    print("training classifier")
     bst = classifier.train(train_pair)
 
     score = f1_score(
@@ -141,9 +147,7 @@ def predict(output, birdclef_root, classifier_source):
         y_pred = cls_model.classifier.predict(X)
         res_inner = []
         for row, pred in zip(df.itertuples(), y_pred):
-            labels = cls_model.label_encoder.inverse_transform(
-                np.nonzero(pred.reshape(-1))
-            )
+            labels = cls_model.label_encoder.inverse_transform(np.flatnonzero(pred))
             for label in labels:
                 res_inner.append(
                     {
@@ -160,6 +164,7 @@ def predict(output, birdclef_root, classifier_source):
     ).fillna(False)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
+    print(submission_df.head())
     submission_df[["row_id", "target"]].to_csv(output, index=False)
 
 

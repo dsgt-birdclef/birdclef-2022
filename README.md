@@ -218,14 +218,14 @@ python -m birdclef.workflows.classify predict `
 We add some modifications to use the sklearn interface.
 
 ```
-birdclef classify train `
+python -m birdclef.workflows.classify train `
     --birdclef-root data/raw/birdclef-2021 `
     --motif-root data/intermediate/2022-03-12-extracted-primary-motif `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     --filter-set data/raw/birdclef-2022/scored_birds.json `
     data/processed/model/2022-03-18-v2
 
-birdclef classify predict `
+python -m birdclef.workflows.classify predict `
     --birdclef-root data/raw/birdclef-2022 `
     --classifier-source data/processed/model/2022-03-18-v2 `
     data/processed/submission/2022-03-18-v2.csv

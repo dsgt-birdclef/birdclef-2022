@@ -79,8 +79,10 @@ def train_val_test_split(X: np.array, y: np.array):
     return (X_train, y_train), (X_val, y_val), (X_test, y_test)
 
 
-def split(X: np.array, y: np.array):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.9)
+def split(X: np.array, y: np.array, stratify: np.array = None):
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, stratify=stratify, train_size=0.9
+    )
     return (X_train, y_train), (X_test, y_test)
 
 

@@ -26,6 +26,6 @@ setuptools.setup(
     ],
     entry_points="""
         [console_scripts]
-        birdclef=birdclef.workflows:cli
+        birdclef=birdclef.workflows.cli:cli
     """,
 )
