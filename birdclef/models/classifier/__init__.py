@@ -10,9 +10,19 @@ import pandas as pd
 import torch
 import tqdm
 from sklearn.model_selection import train_test_split
+from sklearn.multioutput import MultiOutputClassifier
 
 from birdclef.datasets import soundscape_2021
 from birdclef.models.embedding.tilenet import TileNet
+
+
+class SubmitClassifier:
+    """Class for serialization."""
+
+    def __init__(self, label_encoder, onehot_encoder, classifier):
+        self.label_encoder = label_encoder
+        self.onehot_encoder = onehot_encoder
+        self.classifier = classifier
 
 
 # TODO: only load scored birds
@@ -69,24 +79,25 @@ def train_val_test_split(X: np.array, y: np.array):
     return (X_train, y_train), (X_val, y_val), (X_test, y_test)
 
 
-def train(train_ds: tuple, val_ds: tuple, num_class: int, **kwargs):
+def split(X: np.array, y: np.array):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.9)
+    return (X_train, y_train), (X_test, y_test)
+
+
+def train(train_ds: tuple, **kwargs):
     # TODO: parameter sweep
-    param = {
-        "num_leaves": 31,
-        "objective": "multiclass",
-        "num_class": num_class,
-        "metric": "softmax",
-        **kwargs,
-    }
-    num_boost_round = 100
-    # TODO: train with multioutputclassifier
+    # TODO: should this support a custom metric? Is it even possible to
+    # implement mixup with this style of training?
+
     # https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.LGBMClassifier.html
     # https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier
-    bst = lgb.train(
-        param,
-        train_ds,
-        num_boost_round,
-        valid_sets=val_ds,
-        callbacks=[lgb.early_stopping(stopping_rounds=10)],
+    bst = MultiOutputClassifier(
+        lgb.LGBMClassifier(num_leaves=31, class_weight="balanced", **kwargs)
     )
+
+    # NOTE: we cannot use early stopping, because a validation dataset that
+    # is set on the multioutputclassifier will always be in the wrong shape.
+    # is there a better way to perform a multi-label classification?
+    # callbacks=[lgb.early_stopping(stopping_rounds=10)],
+    bst.fit(train_ds[0], train_ds[1])
     return bst
