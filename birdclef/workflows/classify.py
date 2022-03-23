@@ -33,6 +33,11 @@ def classify():
     default=Path("data/intermediate/2022-03-12-extracted-primary-motif"),
 )
 @click.option(
+    "--ref-motif-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/intermediate/2022-03-18-motif-sample-k-64-v1"),
+)
+@click.option(
     "--embedding-checkpoint",
     type=click.Path(exists=True, dir_okay=False),
     default=Path(
@@ -46,11 +51,25 @@ def classify():
     type=click.Path(exists=True, dir_okay=False),
     default=Path("data/raw/birdclef-2022/scored_birds.json"),
 )
+@click.option("--cens-sr", type=int, default=10)
+@click.option("--mp-window", type=int, default=20)
 @click.option("--limit", type=int, default=-1)
 def train(
-    birdclef_root, output, motif_root, embedding_checkpoint, dim, filter_set, limit
+    birdclef_root,
+    output,
+    motif_root,
+    ref_motif_root,
+    embedding_checkpoint,
+    dim,
+    filter_set,
+    cens_sr,
+    mp_window,
+    limit,
 ):
     scored_birds = json.loads(Path(filter_set).read_text())
+    # load the reference motif dataset
+    ref_motif_df = classifier.load_ref_motif(Path(ref_motif_root), cens_sr=cens_sr)
+
     df = pd.concat(
         [
             # TODO: loading in batches
@@ -68,7 +87,17 @@ def train(
 
     model, device = classifier.load_embedding_model(embedding_checkpoint, dim)
     X_raw = np.stack(df.data.values)
-    X = transform_input(model, device, X_raw)
+    X = np.hstack(
+        [
+            transform_input(model, device, X_raw),
+            classifier.transform_input_motif(
+                ref_motif_df,
+                X_raw,
+                cens_sr=cens_sr,
+                mp_window=mp_window,
+            ),
+        ]
+    )
     y = (
         ohe.transform(le.transform(df.label.values).reshape(-1, 1))
         .toarray()
@@ -112,6 +141,8 @@ def train(
             indent=2,
         )
     )
+
+    shutil.copytree(ref_motif_root, output / "reference_motifs")
 
 
 @classify.command()
