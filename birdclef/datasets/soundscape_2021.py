@@ -25,7 +25,7 @@ def parse_soundscape(path: Path, sr=32000, window=5) -> pd.DataFrame:
     return df[["row_id", "audio_id", "site", "seconds", "x"]]
 
 
-def load_training_soundscapes(train_root: Path, parallelism: int = 8) -> pd.DataFrame:
+def load_training_soundscapes(train_root: Path, parallelism: int = 4) -> pd.DataFrame:
     res = []
     paths = list(train_root.glob("*"))
     with Pool(parallelism) as p:
@@ -33,9 +33,11 @@ def load_training_soundscapes(train_root: Path, parallelism: int = 8) -> pd.Data
     return pd.concat(res)
 
 
-def load(birdclef_root: Path) -> pd.DataFrame:
+def load(birdclef_root: Path, parallelism: int = 4) -> pd.DataFrame:
     labels_df = pd.read_csv(birdclef_root / "train_soundscape_labels.csv")
-    data_df = load_training_soundscapes(birdclef_root / "train_soundscapes")
+    data_df = load_training_soundscapes(
+        birdclef_root / "train_soundscapes", parallelism=parallelism
+    )
 
     # merge the two datasets together to get the raw signal and label
     df = labels_df.merge(data_df[["row_id", "x"]], on="row_id")

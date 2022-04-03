@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="birdclef",
-    version="0.7.0",
+    version="0.8.0",
     description="Utilities for birdclef",
     author="Anthony Miyaguchi",
     author_email="acmiyaguchi@gmail.com",
@@ -26,6 +26,6 @@ setuptools.setup(
     ],
     entry_points="""
         [console_scripts]
-        birdclef=birdclef.workflows:cli
+        birdclef=birdclef.workflows.cli:cli
     """,
 )
