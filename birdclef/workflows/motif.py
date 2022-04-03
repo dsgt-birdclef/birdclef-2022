@@ -175,10 +175,22 @@ def motif_track(output, input, birdclef_root, index):
     sf.write(output, audio_concat, 32000)
 
 
+def _load_motif_metadata_row(path):
+    metadata = _read_json(path)
+    # some of the files may not have a matrix profile associated with them, due
+    # to how short the clip is
+    mp_path = path.parent / "mp.npy"
+    pi_path = path.parent / "pi.npy"
+    mp = np.load(mp_path).tolist() if mp_path.exists() else []
+    pi = np.load(pi_path).tolist() if pi_path.exists() else []
+    return {**metadata, **{"mp": mp, "pi": pi}}
+
+
 @motif.command()
 @click.option("--input", type=str, default="2022-02-21-motif")
-@click.option("--output", type=str, default="2022-02-26-motif-consolidated")
-def consolidate(input, output):
+@click.option("--output", type=str, default="2022-04-03-motif-consolidated")
+@click.option("--parallelism", type=int, default=8)
+def consolidate(input, output, parallelism):
     src = Path(ROOT / f"data/intermediate/{input}")
     dst = Path(ROOT / f"data/intermediate/{output}.parquet")
 
@@ -186,8 +198,10 @@ def consolidate(input, output):
     if not files:
         raise ValueError("no files found")
 
-    with Pool(12) as p:
-        data = p.map(_read_json, tqdm.tqdm(files, total=len(files)), chunksize=1)
+    with Pool(parallelism) as p:
+        data = p.map(
+            _load_motif_metadata_row, tqdm.tqdm(files, total=len(files)), chunksize=1
+        )
 
     df = pd.DataFrame(data)
     print(df.head())
@@ -273,7 +287,7 @@ def generate_samples(df, n_samples, grouping_col="family", window_sec=7):
 
 
 @motif.command()
-@click.option("--input", type=str, default="2022-02-26-motif-consolidated")
+@click.option("--input", type=str, default="2022-04-03-motif-consolidated")
 @click.option("--output", type=str, default="2022-02-26-motif-triplets")
 @click.option("--samples", type=float, default=1e6)
 def generate_triplets(input, output, samples):
@@ -362,7 +376,7 @@ def _extract_primary_motif(
 @click.option(
     "--input",
     type=click.Path(exists=True, dir_okay=False),
-    default=ROOT / "data/intermediate/2022-02-26-motif-consolidated.parquet",
+    default=ROOT / "data/intermediate/2022-04-03-motif-consolidated.parquet",
 )
 @click.option(
     "--dataset-root",
@@ -375,6 +389,7 @@ def _extract_primary_motif(
     default=ROOT / "data/intermediate/2022-03-12-extracted-primary-motif",
 )
 def extract_primary_motif(input, dataset_root, output):
+    click.echo("deprecated in favor of extract-top-motifs")
     df = pd.read_parquet(input)
     print(df)
     Path(output).mkdir(parents=True, exist_ok=True)
@@ -385,6 +400,110 @@ def extract_primary_motif(input, dataset_root, output):
         p.map(
             partial(_extract_primary_motif, Path(dataset_root), Path(output)),
             tqdm.tqdm([row for _, row in df.iterrows()], total=df.shape[0]),
+            chunksize=1,
+        )
+
+
+def _extract_top_motif(
+    dataset_root: Path,
+    output: Path,
+    row: pd.Series,
+    n_motif: int = 3,
+    n_discord: int = 1,
+    duration: int = 5,
+    sr: int = 32000,
+):
+    input_path = dataset_root / row.source_name
+    output_path = output / input_path.parent.name
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # lets figure out the top motifs and top discords
+    sorted_indices = np.argsort(row.mp)
+    indices = sorted_indices[:n_motif].tolist() + sorted_indices[-n_discord:].tolist()
+
+    # now find their matching pairs, and take the set of indices. note, we lose
+    # information about the ordering here, but it's probably not super
+    # important...
+    res = []
+    for idx in indices:
+        if idx > row.pi.shape[0]:
+            print(f"bad index: {idx} > {row.pi.shape[0]}, {row.mp.shape[0]}")
+            continue
+        res.append(int(idx))
+        res.append(row.pi[int(idx)])
+    res = sorted(set(res))
+
+    # make sure we include a motif if the clip is short
+    if len(res) == 0:
+        res.append(-1)
+
+    for idx in res:
+        name = input_path.name.split(".")[0]
+        path = output_path / f"{name}_{idx}.ogg"
+        if path.exists():
+            continue
+        start, _ = (
+            compute_offset(
+                idx, row.matrix_profile_window, row.duration_cens, row.duration_samples
+            )
+            if idx >= 0
+            else (0, 0)
+        )
+        y = load_audio(input_path, start, duration, sr)
+        sf.write(path, y, sr, format="ogg", subtype="vorbis")
+
+
+@motif.command()
+@click.option(
+    "--input",
+    type=click.Path(exists=True, dir_okay=False),
+    default=ROOT / "data/intermediate/2022-04-03-motif-consolidated.parquet",
+)
+@click.option(
+    "--dataset-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=ROOT / "data/raw/birdclef-2022",
+)
+@click.option(
+    "--filter-set",
+    type=click.Path(exists=True, dir_okay=False),
+    default=Path("data/raw/birdclef-2022/scored_birds.json"),
+)
+@click.option(
+    "--output",
+    type=click.Path(file_okay=False),
+    default=ROOT / "data/intermediate/2022-04-03-extracted-top-motif",
+)
+@click.option(
+    "--n-motif", type=int, help="number of motifs pairs to extract", default=3
+)
+@click.option(
+    "--n-discord", type=int, help="number of discord pairs to extract", default=1
+)
+@click.option("--parallelism", type=int, default=8)
+def extract_top_motif(
+    input, dataset_root, filter_set, output, n_motif, n_discord, parallelism
+):
+    df = pd.read_parquet(input)
+    print(df)
+    Path(output).mkdir(parents=True, exist_ok=True)
+    filter_set = set(json.loads(Path(filter_set).read_text()))
+
+    rows = [
+        row
+        for _, row in df.iterrows()
+        if Path(row.source_name).parent.name in filter_set
+    ]
+    with Pool(parallelism) as p:
+        p.map(
+            partial(
+                _extract_top_motif,
+                Path(dataset_root),
+                Path(output),
+                n_motif=n_motif,
+                n_discord=n_discord,
+            ),
+            tqdm.tqdm(rows, total=len(rows)),
             chunksize=1,
         )
 

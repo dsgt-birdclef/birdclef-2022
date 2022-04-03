@@ -248,6 +248,14 @@ python -m birdclef.workflows.classify predict `
     data/processed/submission/2022-04-02-v3.csv
 ```
 
+We're going to modify the motif extraction be able to take the top motifs (as well as the discord).
+
+```powershell
+python -m birdclef.workflows.motif consolidate
+python -m birdclef.workflows.motif extract-top-motif `
+    --output data/intermediate/2022-04-03-extracted-top-motif
+```
+
 ### kaggle submission
 
 See the following two notebooks:
