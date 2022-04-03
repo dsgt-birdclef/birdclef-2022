@@ -12,7 +12,8 @@ from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 from birdclef.datasets import soundscape
-from birdclef.models import classifier
+from birdclef.models.classifier import datasets
+from birdclef.models.classifier import model as classifier_model
 from birdclef.utils import chunks, transform_input
 
 
@@ -71,28 +72,30 @@ def train(
 ):
     scored_birds = json.loads(Path(filter_set).read_text())
     # load the reference motif dataset
-    ref_motif_df = classifier.load_ref_motif(Path(ref_motif_root), cens_sr=cens_sr)
+    ref_motif_df = datasets.load_ref_motif(Path(ref_motif_root), cens_sr=cens_sr)
 
     df = pd.concat(
         [
-            classifier.load_motif(
+            datasets.load_motif(
                 Path(motif_root),
                 scored_birds=scored_birds,
                 limit=limit,
                 parallelism=parallelism,
             ),
-            classifier.load_soundscape_noise(
+            datasets.load_soundscape_noise(
                 Path(birdclef_root), parallelism=parallelism
             ),
         ]
     )
+    if limit > 0:
+        df = df.iloc[:limit]
 
     le = LabelEncoder()
     le.fit(df.label)
     ohe = OneHotEncoder()
     ohe.fit(le.transform(df.label).reshape(-1, 1))
 
-    model, device = classifier.load_embedding_model(embedding_checkpoint, dim)
+    model, device = datasets.load_embedding_model(embedding_checkpoint, dim)
     X_raw = np.stack(df.data.values)
 
     # transform data in batches, mostly because transforming the motif features
@@ -104,7 +107,7 @@ def train(
         transformed_chunk = np.hstack(
             [
                 transform_input(model, device, chunk, batch_size=batch_size),
-                classifier.transform_input_motif(
+                datasets.transform_input_motif(
                     ref_motif_df,
                     chunk,
                     cens_sr=cens_sr,
@@ -126,7 +129,7 @@ def train(
         .astype(int)
     )
 
-    train_pair, (X_test, y_test) = classifier.split(
+    train_pair, (X_test, y_test) = datasets.split(
         X,
         y,
         # not enough examples
@@ -134,7 +137,7 @@ def train(
     )
 
     print("training classifier")
-    bst = classifier.train(train_pair)
+    bst = classifier_model.train(train_pair)
 
     score = f1_score(
         y_test,
@@ -147,7 +150,7 @@ def train(
     # load
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    model = classifier.SubmitClassifier(le, ohe, bst)
+    model = classifier_model.SubmitClassifier(le, ohe, bst)
     with open(output / "submit_classifier.pkl", "wb") as fp:
         pickle.dump(model, fp)
 
@@ -188,10 +191,10 @@ def predict(output, birdclef_root, classifier_source):
 
     metadata = json.loads((classifier_source / "metadata.json").read_text())
     print(metadata)
-    model, device = classifier.load_embedding_model(
+    model, device = datasets.load_embedding_model(
         classifier_source / "embedding.ckpt", metadata["embedding_dim"]
     )
-    ref_motif_df = classifier.load_ref_motif(
+    ref_motif_df = datasets.load_ref_motif(
         classifier_source / "reference_motifs", cens_sr=metadata["cens_sr"]
     )
 
@@ -206,7 +209,7 @@ def predict(output, birdclef_root, classifier_source):
         X = np.hstack(
             [
                 transform_input(model, device, X_raw),
-                classifier.transform_input_motif(
+                datasets.transform_input_motif(
                     ref_motif_df,
                     X_raw,
                     cens_sr=metadata["cens_sr"],
