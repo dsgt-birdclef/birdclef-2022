@@ -240,8 +240,7 @@ python -m birdclef.workflows.classify train `
     --ref-motif-root data/intermediate/2022-03-18-motif-sample-k-64-v1 `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     --filter-set data/raw/birdclef-2022/scored_birds.json `
-    data/processed/model/2022-03-18-v3
-
+    data/processed/model/2022-04-02-v3
 ```
 
 ### kaggle submission

@@ -7,12 +7,13 @@ from pathlib import Path
 import click
 import numpy as np
 import pandas as pd
+import tqdm
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 from birdclef.datasets import soundscape
 from birdclef.models import classifier
-from birdclef.utils import transform_input
+from birdclef.utils import chunks, transform_input
 
 
 @click.group()
@@ -54,6 +55,7 @@ def classify():
 @click.option("--cens-sr", type=int, default=10)
 @click.option("--mp-window", type=int, default=20)
 @click.option("--limit", type=int, default=-1)
+@click.option("--parallelism", type=int, default=4)
 def train(
     birdclef_root,
     output,
@@ -65,6 +67,7 @@ def train(
     cens_sr,
     mp_window,
     limit,
+    parallelism,
 ):
     scored_birds = json.loads(Path(filter_set).read_text())
     # load the reference motif dataset
@@ -72,11 +75,15 @@ def train(
 
     df = pd.concat(
         [
-            # TODO: loading in batches
             classifier.load_motif(
-                Path(motif_root), scored_birds=scored_birds, limit=limit
+                Path(motif_root),
+                scored_birds=scored_birds,
+                limit=limit,
+                parallelism=parallelism,
             ),
-            classifier.load_soundscape_noise(Path(birdclef_root)),
+            classifier.load_soundscape_noise(
+                Path(birdclef_root), parallelism=parallelism
+            ),
         ]
     )
 
@@ -87,17 +94,32 @@ def train(
 
     model, device = classifier.load_embedding_model(embedding_checkpoint, dim)
     X_raw = np.stack(df.data.values)
-    X = np.hstack(
-        [
-            transform_input(model, device, X_raw),
-            classifier.transform_input_motif(
-                ref_motif_df,
-                X_raw,
-                cens_sr=cens_sr,
-                mp_window=mp_window,
-            ),
-        ]
-    )
+
+    # transform data in batches, mostly because transforming the motif features
+    # takes up a significant amount of memory. Windows will complain about not
+    # being able to fit the memory into a page segment.
+    batch_size = 50
+    X = None
+    for chunk in tqdm.tqdm(chunks(X_raw, batch_size), total=len(X_raw) // batch_size):
+        transformed_chunk = np.hstack(
+            [
+                transform_input(model, device, chunk, batch_size=batch_size),
+                classifier.transform_input_motif(
+                    ref_motif_df,
+                    chunk,
+                    cens_sr=cens_sr,
+                    mp_window=mp_window,
+                    parallelism=parallelism,
+                ),
+            ]
+        )
+        if X is None:
+            X = transformed_chunk
+        else:
+            # stack the X with the transformed chunk
+            X = np.vstack([X, transformed_chunk])
+    print(f"done transforming data: {X.shape}")
+
     y = (
         ohe.transform(le.transform(df.label.values).reshape(-1, 1))
         .toarray()
@@ -141,8 +163,10 @@ def train(
             indent=2,
         )
     )
-
-    shutil.copytree(ref_motif_root, output / "reference_motifs")
+    motif_output = output / "reference_motifs"
+    if motif_output.exists():
+        shutil.rmtree(motif_output)
+    shutil.copytree(ref_motif_root, motif_output)
 
 
 @classify.command()

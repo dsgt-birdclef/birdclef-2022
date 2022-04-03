@@ -86,9 +86,7 @@ def _compute_matrix_profile_features(
     mp_window: int,
     sr: int = 32000,
 ) -> np.array:
-    cens = librosa.feature.chroma_cens(
-        x, sr=cens_sr, hop_length=cens_per_sec(sr, cens_sr)
-    )
+    cens = librosa.feature.chroma_cens(y=x, sr=sr, hop_length=cens_per_sec(sr, cens_sr))
     res = []
     for row in df.itertuples():
         mp, _ = simple_fast(row.cens, cens, mp_window)
@@ -105,25 +103,26 @@ def transform_input_motif(
     parallelism=4,
 ) -> np.array:
     """Return the min, max, and median of the matrix profile for each reference
-    motif against each input row."""
-    with ThreadPool(parallelism) as p:
-        res = p.map(
-            partial(
-                _compute_matrix_profile_features,
-                df=ref_motif_df,
-                cens_sr=cens_sr,
-                mp_window=mp_window,
-                sr=sr,
-            ),
-            tqdm.tqdm(X),
-            chunksize=1,
-        )
+    motif against each input row.
+
+    We can certainly run out of memory during this computation, so callers
+    should take care to batch results.
+    """
+    func = partial(
+        _compute_matrix_profile_features,
+        df=ref_motif_df,
+        cens_sr=cens_sr,
+        mp_window=mp_window,
+        sr=sr,
+    )
+    with Pool(parallelism) as p:
+        res = p.map(func, X)
     return np.array(res)
 
 
-def load_soundscape_noise(birdclef_2021_root: Path) -> pd.DataFrame:
+def load_soundscape_noise(birdclef_2021_root: Path, parallelism=4) -> pd.DataFrame:
     """Load noise from soundscape"""
-    df = soundscape_2021.load(birdclef_2021_root)
+    df = soundscape_2021.load(birdclef_2021_root, parallelism=parallelism)
     subset = df[df.y == 0].rename(columns={"x": "data"})
     subset["label"] = "other"
     return subset[["data", "label"]]
