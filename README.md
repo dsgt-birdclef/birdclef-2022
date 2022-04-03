@@ -241,6 +241,11 @@ python -m birdclef.workflows.classify train `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     --filter-set data/raw/birdclef-2022/scored_birds.json `
     data/processed/model/2022-04-02-v3
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-04-02-v3 `
+    data/processed/submission/2022-04-02-v3.csv
 ```
 
 ### kaggle submission

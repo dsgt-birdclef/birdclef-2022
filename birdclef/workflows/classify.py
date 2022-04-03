@@ -159,6 +159,8 @@ def train(
                 embedding_source=Path(embedding_checkpoint).as_posix(),
                 embedding_dim=dim,
                 created=datetime.datetime.now().isoformat(),
+                cens_sr=cens_sr,
+                mp_window=mp_window,
             ),
             indent=2,
         )
@@ -189,6 +191,9 @@ def predict(output, birdclef_root, classifier_source):
     model, device = classifier.load_embedding_model(
         classifier_source / "embedding.ckpt", metadata["embedding_dim"]
     )
+    ref_motif_df = classifier.load_ref_motif(
+        classifier_source / "reference_motifs", cens_sr=metadata["cens_sr"]
+    )
 
     test_df = pd.read_csv(Path(birdclef_root) / "test.csv")
     print(test_df.head())
@@ -198,7 +203,17 @@ def predict(output, birdclef_root, classifier_source):
         Path(birdclef_root) / "test_soundscapes"
     ):
         X_raw = np.stack(df.x.values)
-        X = transform_input(model, device, X_raw)
+        X = np.hstack(
+            [
+                transform_input(model, device, X_raw),
+                classifier.transform_input_motif(
+                    ref_motif_df,
+                    X_raw,
+                    cens_sr=metadata["cens_sr"],
+                    mp_window=metadata["mp_window"],
+                ),
+            ]
+        )
         y_pred = cls_model.classifier.predict(X)
         res_inner = []
         for row, pred in zip(df.itertuples(), y_pred):
