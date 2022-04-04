@@ -32,6 +32,47 @@ def classify():
 @click.option(
     "--motif-root",
     type=click.Path(exists=True, file_okay=False),
+    default=Path("data/intermediate/2022-04-03-extracted-top-motif"),
+)
+@click.option(
+    "--filter-set",
+    type=click.Path(exists=True, dir_okay=False),
+    default=Path("data/raw/birdclef-2022/scored_birds.json"),
+)
+@click.option("--limit", type=int, default=-1)
+@click.option("--num-per-class", type=int, default=2500)
+@click.option("--parallelism", type=int, default=8)
+def prepare_dataset(
+    output, birdclef_root, motif_root, filter_set, limit, num_per_class, parallelism
+):
+    scored_birds = json.loads(Path(filter_set).read_text())
+
+    df = pd.concat(
+        [
+            datasets.load_motif(
+                Path(motif_root),
+                scored_birds=scored_birds,
+                limit=limit,
+                parallelism=parallelism,
+            ),
+            datasets.load_soundscape_noise(
+                Path(birdclef_root), parallelism=parallelism
+            ),
+        ]
+    )
+    datasets.resample_dataset(Path(output), df, num_per_class)
+
+
+@classify.command()
+@click.argument("output", type=click.Path(exists=False, file_okay=False))
+@click.option(
+    "--birdclef-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/raw/birdclef-2021"),
+)
+@click.option(
+    "--motif-root",
+    type=click.Path(exists=True, file_okay=False),
     default=Path("data/intermediate/2022-03-12-extracted-primary-motif"),
 )
 @click.option(
@@ -56,7 +97,7 @@ def classify():
 @click.option("--cens-sr", type=int, default=10)
 @click.option("--mp-window", type=int, default=20)
 @click.option("--limit", type=int, default=-1)
-@click.option("--parallelism", type=int, default=4)
+@click.option("--parallelism", type=int, default=8)
 def train(
     birdclef_root,
     output,

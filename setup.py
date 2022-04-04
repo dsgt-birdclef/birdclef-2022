@@ -20,6 +20,7 @@ setuptools.setup(
         "torch",
         "nnAudio",
         "pytorch-lightning",
+        "torch-audiomentations",
         "torch-summary",
         "lightgbm",
         "simple-fast-python",

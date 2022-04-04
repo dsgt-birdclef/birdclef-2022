@@ -254,6 +254,17 @@ We're going to modify the motif extraction be able to take the top motifs (as we
 python -m birdclef.workflows.motif consolidate
 python -m birdclef.workflows.motif extract-top-motif `
     --output data/intermediate/2022-04-03-extracted-top-motif
+
+python -m birdclef.workflows.classify prepare-dataset `
+    --motif-root data/intermediate/2022-04-03-extracted-top-motif `
+    --num-per-class 100 `
+    --limit 100 `
+    data/intermediate/2022-04-03-train-augment-100
+
+python -m birdclef.workflows.classify prepare-dataset `
+    --motif-root data/intermediate/2022-04-03-extracted-top-motif `
+    --num-per-class 2500 `
+    data/intermediate/2022-04-03-train-augment-2500
 ```
 
 ### kaggle submission

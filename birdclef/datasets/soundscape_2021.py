@@ -42,4 +42,4 @@ def load(birdclef_root: Path, parallelism: int = 4) -> pd.DataFrame:
     # merge the two datasets together to get the raw signal and label
     df = labels_df.merge(data_df[["row_id", "x"]], on="row_id")
     df["y"] = (df.birds != "nocall").astype(int)
-    return df[["x", "y"]]
+    return df[["audio_id", "x", "y"]]
