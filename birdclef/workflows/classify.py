@@ -81,6 +81,12 @@ def prepare_dataset(
     default=Path("data/intermediate/2022-03-18-motif-sample-k-64-v1"),
 )
 @click.option(
+    "--use-ref-motif/--no-use-ref-motif",
+    type=bool,
+    default=False,
+    help="whether to include motif features in the classification model",
+)
+@click.option(
     "--embedding-checkpoint",
     type=click.Path(exists=True, dir_okay=False),
     default=Path(
@@ -103,6 +109,7 @@ def train(
     output,
     motif_root,
     ref_motif_root,
+    use_ref_motif,
     embedding_checkpoint,
     dim,
     filter_set,
@@ -112,9 +119,8 @@ def train(
     parallelism,
 ):
     scored_birds = json.loads(Path(filter_set).read_text())
-    # load the reference motif dataset
-    ref_motif_df = datasets.load_ref_motif(Path(ref_motif_root), cens_sr=cens_sr)
-
+    # TODO: read in smaller chunks and transform at the same time, this is
+    # unsustainable memory-wise
     df = pd.concat(
         [
             datasets.load_motif(
@@ -139,6 +145,10 @@ def train(
     model, device = datasets.load_embedding_model(embedding_checkpoint, dim)
     X_raw = np.stack(df.data.values)
 
+    if use_ref_motif:
+        # load the reference motif dataset
+        ref_motif_df = datasets.load_ref_motif(Path(ref_motif_root), cens_sr=cens_sr)
+
     # transform data in batches, mostly because transforming the motif features
     # takes up a significant amount of memory. Windows will complain about not
     # being able to fit the memory into a page segment.
@@ -146,16 +156,18 @@ def train(
     X = None
     for chunk in tqdm.tqdm(chunks(X_raw, batch_size), total=len(X_raw) // batch_size):
         transformed_chunk = np.hstack(
-            [
-                transform_input(model, device, chunk, batch_size=batch_size),
+            [transform_input(model, device, chunk, batch_size=batch_size)]
+            + (
                 datasets.transform_input_motif(
                     ref_motif_df,
                     chunk,
                     cens_sr=cens_sr,
                     mp_window=mp_window,
                     parallelism=parallelism,
-                ),
-            ]
+                )
+                if use_ref_motif
+                else []
+            )
         )
         if X is None:
             X = transformed_chunk
@@ -205,14 +217,16 @@ def train(
                 created=datetime.datetime.now().isoformat(),
                 cens_sr=cens_sr,
                 mp_window=mp_window,
+                use_ref_motif=use_ref_motif,
             ),
             indent=2,
         )
     )
-    motif_output = output / "reference_motifs"
-    if motif_output.exists():
-        shutil.rmtree(motif_output)
-    shutil.copytree(ref_motif_root, motif_output)
+    if use_ref_motif:
+        motif_output = output / "reference_motifs"
+        if motif_output.exists():
+            shutil.rmtree(motif_output)
+        shutil.copytree(ref_motif_root, motif_output)
 
 
 @classify.command()
@@ -235,9 +249,12 @@ def predict(output, birdclef_root, classifier_source):
     model, device = datasets.load_embedding_model(
         classifier_source / "embedding.ckpt", metadata["embedding_dim"]
     )
-    ref_motif_df = datasets.load_ref_motif(
-        classifier_source / "reference_motifs", cens_sr=metadata["cens_sr"]
-    )
+
+    use_ref_motif = metadata.get("use_ref_motif", False)
+    if use_ref_motif:
+        ref_motif_df = datasets.load_ref_motif(
+            classifier_source / "reference_motifs", cens_sr=metadata["cens_sr"]
+        )
 
     test_df = pd.read_csv(Path(birdclef_root) / "test.csv")
     print(test_df.head())
@@ -248,15 +265,17 @@ def predict(output, birdclef_root, classifier_source):
     ):
         X_raw = np.stack(df.x.values)
         X = np.hstack(
-            [
-                transform_input(model, device, X_raw),
+            [transform_input(model, device, X_raw)]
+            + (
                 datasets.transform_input_motif(
                     ref_motif_df,
                     X_raw,
                     cens_sr=metadata["cens_sr"],
                     mp_window=metadata["mp_window"],
-                ),
-            ]
+                )
+                if use_ref_motif
+                else []
+            )
         )
         y_pred = cls_model.classifier.predict(X)
         res_inner = []
