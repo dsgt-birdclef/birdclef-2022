@@ -1,8 +1,9 @@
-import numpy as np
-import soundfile as sf
-import pytest
-from birdclef.utils import load_audio
 import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+import soundfile as sf
+
+from birdclef.utils import load_audio
 
 
 @pytest.fixture

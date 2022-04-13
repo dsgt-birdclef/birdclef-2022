@@ -1,7 +1,7 @@
+import numpy as np
 import pytest
 import pytorch_lightning as pl
 from torchsummary import summary
-import numpy as np
 
 from birdclef.models.embedding import datasets, tilenet
 
