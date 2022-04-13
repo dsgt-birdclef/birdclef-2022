@@ -237,6 +237,7 @@ And now we add motif features:
 python -m birdclef.workflows.classify train `
     --birdclef-root data/raw/birdclef-2021 `
     --motif-root data/intermediate/2022-03-12-extracted-primary-motif `
+    --use-ref-motif `
     --ref-motif-root data/intermediate/2022-03-18-motif-sample-k-64-v1 `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     --filter-set data/raw/birdclef-2022/scored_birds.json `
@@ -246,6 +247,50 @@ python -m birdclef.workflows.classify predict `
     --birdclef-root data/raw/birdclef-2022 `
     --classifier-source data/processed/model/2022-04-02-v3 `
     data/processed/submission/2022-04-02-v3.csv
+```
+
+We're going to modify the motif extraction be able to take the top motifs (as well as the discord).
+
+```powershell
+python -m birdclef.workflows.motif consolidate
+python -m birdclef.workflows.motif extract-top-motif `
+    --output data/intermediate/2022-04-03-extracted-top-motif
+
+python -m birdclef.workflows.classify prepare-dataset `
+    --motif-root data/intermediate/2022-04-03-extracted-top-motif `
+    --num-per-class 100 `
+    --limit 100 `
+    data/intermediate/2022-04-03-train-augment-100
+
+python -m birdclef.workflows.classify prepare-dataset `
+    --motif-root data/intermediate/2022-04-03-extracted-top-motif `
+    --num-per-class 250 `
+    data/intermediate/2022-04-03-train-augment-250
+
+python -m birdclef.workflows.classify prepare-dataset `
+    --motif-root data/intermediate/2022-04-03-extracted-top-motif `
+    --num-per-class 2500 `
+    data/intermediate/2022-04-03-train-augment-2500
+```
+
+For now, we also also disable the use of reference motif during training because
+otherwise predictions on kaggle is really slow.
+
+```
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-04-03-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-04-12-v4
+
+# test score: 0.7278375308887418
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-04-12-v4 `
+    data/processed/submission/2022-04-12-v4.csv
 ```
 
 ### kaggle submission

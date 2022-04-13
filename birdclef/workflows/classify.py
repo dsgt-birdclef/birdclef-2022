@@ -12,13 +12,55 @@ from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 from birdclef.datasets import soundscape
-from birdclef.models import classifier
+from birdclef.models.classifier import datasets
+from birdclef.models.classifier import model as classifier_model
 from birdclef.utils import chunks, transform_input
 
 
 @click.group()
 def classify():
     pass
+
+
+@classify.command()
+@click.argument("output", type=click.Path(exists=False, file_okay=False))
+@click.option(
+    "--birdclef-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/raw/birdclef-2021"),
+)
+@click.option(
+    "--motif-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/intermediate/2022-04-03-extracted-top-motif"),
+)
+@click.option(
+    "--filter-set",
+    type=click.Path(exists=True, dir_okay=False),
+    default=Path("data/raw/birdclef-2022/scored_birds.json"),
+)
+@click.option("--limit", type=int, default=-1)
+@click.option("--num-per-class", type=int, default=2500)
+@click.option("--parallelism", type=int, default=8)
+def prepare_dataset(
+    output, birdclef_root, motif_root, filter_set, limit, num_per_class, parallelism
+):
+    scored_birds = json.loads(Path(filter_set).read_text())
+
+    df = pd.concat(
+        [
+            datasets.load_motif(
+                Path(motif_root),
+                scored_birds=scored_birds,
+                limit=limit,
+                parallelism=parallelism,
+            ),
+            datasets.load_soundscape_noise(
+                Path(birdclef_root), parallelism=parallelism
+            ),
+        ]
+    )
+    datasets.resample_dataset(Path(output), df, num_per_class)
 
 
 @classify.command()
@@ -39,6 +81,12 @@ def classify():
     default=Path("data/intermediate/2022-03-18-motif-sample-k-64-v1"),
 )
 @click.option(
+    "--use-ref-motif/--no-use-ref-motif",
+    type=bool,
+    default=False,
+    help="whether to include motif features in the classification model",
+)
+@click.option(
     "--embedding-checkpoint",
     type=click.Path(exists=True, dir_okay=False),
     default=Path(
@@ -55,12 +103,13 @@ def classify():
 @click.option("--cens-sr", type=int, default=10)
 @click.option("--mp-window", type=int, default=20)
 @click.option("--limit", type=int, default=-1)
-@click.option("--parallelism", type=int, default=4)
+@click.option("--parallelism", type=int, default=8)
 def train(
     birdclef_root,
     output,
     motif_root,
     ref_motif_root,
+    use_ref_motif,
     embedding_checkpoint,
     dim,
     filter_set,
@@ -70,30 +119,35 @@ def train(
     parallelism,
 ):
     scored_birds = json.loads(Path(filter_set).read_text())
-    # load the reference motif dataset
-    ref_motif_df = classifier.load_ref_motif(Path(ref_motif_root), cens_sr=cens_sr)
-
+    # TODO: read in smaller chunks and transform at the same time, this is
+    # unsustainable memory-wise
     df = pd.concat(
         [
-            classifier.load_motif(
+            datasets.load_motif(
                 Path(motif_root),
                 scored_birds=scored_birds,
                 limit=limit,
                 parallelism=parallelism,
             ),
-            classifier.load_soundscape_noise(
+            datasets.load_soundscape_noise(
                 Path(birdclef_root), parallelism=parallelism
             ),
         ]
     )
+    if limit > 0:
+        df = df.iloc[:limit]
 
     le = LabelEncoder()
     le.fit(df.label)
     ohe = OneHotEncoder()
     ohe.fit(le.transform(df.label).reshape(-1, 1))
 
-    model, device = classifier.load_embedding_model(embedding_checkpoint, dim)
+    model, device = datasets.load_embedding_model(embedding_checkpoint, dim)
     X_raw = np.stack(df.data.values)
+
+    if use_ref_motif:
+        # load the reference motif dataset
+        ref_motif_df = datasets.load_ref_motif(Path(ref_motif_root), cens_sr=cens_sr)
 
     # transform data in batches, mostly because transforming the motif features
     # takes up a significant amount of memory. Windows will complain about not
@@ -102,16 +156,18 @@ def train(
     X = None
     for chunk in tqdm.tqdm(chunks(X_raw, batch_size), total=len(X_raw) // batch_size):
         transformed_chunk = np.hstack(
-            [
-                transform_input(model, device, chunk, batch_size=batch_size),
-                classifier.transform_input_motif(
+            [transform_input(model, device, chunk, batch_size=batch_size)]
+            + (
+                datasets.transform_input_motif(
                     ref_motif_df,
                     chunk,
                     cens_sr=cens_sr,
                     mp_window=mp_window,
                     parallelism=parallelism,
-                ),
-            ]
+                )
+                if use_ref_motif
+                else []
+            )
         )
         if X is None:
             X = transformed_chunk
@@ -126,7 +182,7 @@ def train(
         .astype(int)
     )
 
-    train_pair, (X_test, y_test) = classifier.split(
+    train_pair, (X_test, y_test) = datasets.split(
         X,
         y,
         # not enough examples
@@ -134,7 +190,7 @@ def train(
     )
 
     print("training classifier")
-    bst = classifier.train(train_pair)
+    bst = classifier_model.train(train_pair)
 
     score = f1_score(
         y_test,
@@ -147,7 +203,7 @@ def train(
     # load
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    model = classifier.SubmitClassifier(le, ohe, bst)
+    model = classifier_model.SubmitClassifier(le, ohe, bst)
     with open(output / "submit_classifier.pkl", "wb") as fp:
         pickle.dump(model, fp)
 
@@ -161,14 +217,16 @@ def train(
                 created=datetime.datetime.now().isoformat(),
                 cens_sr=cens_sr,
                 mp_window=mp_window,
+                use_ref_motif=use_ref_motif,
             ),
             indent=2,
         )
     )
-    motif_output = output / "reference_motifs"
-    if motif_output.exists():
-        shutil.rmtree(motif_output)
-    shutil.copytree(ref_motif_root, motif_output)
+    if use_ref_motif:
+        motif_output = output / "reference_motifs"
+        if motif_output.exists():
+            shutil.rmtree(motif_output)
+        shutil.copytree(ref_motif_root, motif_output)
 
 
 @classify.command()
@@ -188,12 +246,15 @@ def predict(output, birdclef_root, classifier_source):
 
     metadata = json.loads((classifier_source / "metadata.json").read_text())
     print(metadata)
-    model, device = classifier.load_embedding_model(
+    model, device = datasets.load_embedding_model(
         classifier_source / "embedding.ckpt", metadata["embedding_dim"]
     )
-    ref_motif_df = classifier.load_ref_motif(
-        classifier_source / "reference_motifs", cens_sr=metadata["cens_sr"]
-    )
+
+    use_ref_motif = metadata.get("use_ref_motif", False)
+    if use_ref_motif:
+        ref_motif_df = datasets.load_ref_motif(
+            classifier_source / "reference_motifs", cens_sr=metadata["cens_sr"]
+        )
 
     test_df = pd.read_csv(Path(birdclef_root) / "test.csv")
     print(test_df.head())
@@ -204,15 +265,17 @@ def predict(output, birdclef_root, classifier_source):
     ):
         X_raw = np.stack(df.x.values)
         X = np.hstack(
-            [
-                transform_input(model, device, X_raw),
-                classifier.transform_input_motif(
+            [transform_input(model, device, X_raw)]
+            + (
+                datasets.transform_input_motif(
                     ref_motif_df,
                     X_raw,
                     cens_sr=metadata["cens_sr"],
                     mp_window=metadata["mp_window"],
-                ),
-            ]
+                )
+                if use_ref_motif
+                else []
+            )
         )
         y_pred = cls_model.classifier.predict(X)
         res_inner = []

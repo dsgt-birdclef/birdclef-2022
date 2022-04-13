@@ -1,5 +1,6 @@
-from birdclef.models.embedding import datasets
 import pytest
+
+from birdclef.models.embedding import datasets
 
 
 def test_tile_triplets_triplets_dataset(metadata_df, extract_triplet_path):
