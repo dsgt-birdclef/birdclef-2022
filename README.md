@@ -132,7 +132,7 @@ batch is used to compute the gradient, and fails. We also tried adding a small
 amount of noise to the input signal before it is passed into the the spectrogram
 layer. We choose to stick with single precision layers (32 bit floats) due to
 numerical stability. Despite this choice, we still see the loss turn into NaN on
-occassion.
+occasion.
 
 ### no-call classifier
 

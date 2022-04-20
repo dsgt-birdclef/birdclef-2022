@@ -1,7 +1,7 @@
 # Label Studio
 
 This directory contains code related to label studio. This section is lacking in
-documentation. The approach may be unncessary given a good data loading strategy.
+documentation. The approach may be unnecessary given a good data loading strategy.
 
 ## notes
 
