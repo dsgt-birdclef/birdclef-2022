@@ -5,7 +5,7 @@ on:
 
 jobs:
   pre-commit:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -16,4 +16,4 @@ jobs:
       - name: Run pre-commit as linter
         uses: pre-commit/action@v2.0.3
         with:
-          extra_args: --all-files --show-diff-on-failure
+          extra_args: --all-files
