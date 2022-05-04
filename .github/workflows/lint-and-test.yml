@@ -27,4 +27,4 @@ jobs:
           extra_args: --all-files
       - name: Test with pytest
         run: |
-          pytest -vv tests/
+          pytest -q tests/
