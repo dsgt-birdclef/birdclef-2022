@@ -13,10 +13,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Set up Python 3.8 environment
+      - name: Set up Python 3.9 environment
         uses: actions/setup-python@v3
         with:
-          python-version: "3.8"
+          python-version: "3.9"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -27,4 +27,4 @@ jobs:
           extra_args: --all-files
       - name: Test with pytest
         run: |
-          pytest -q tests/
+          pytest -vv tests/
