@@ -1,0 +1,23 @@
+name: Lint
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Run pre-commit as linter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python 3.9 environment
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.9"
+      - name: Run pre-commit as linter
+        uses: pre-commit/action@v2.0.3
+        with:
+          extra_args: --all-files

@@ -12,7 +12,7 @@ def test_augment_samples_correct_shape():
     assert X_aug.shape == (10, sr)
 
 
-@pytest.mark.skip(reason="skipping this test to debug long test time")
+# @pytest.mark.skip(reason="skipping this test to debug long test time")
 def test_resample_dataset_correct_shape(tmp_path):
     df = pd.DataFrame(
         [
