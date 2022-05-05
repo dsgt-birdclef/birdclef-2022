@@ -8,6 +8,8 @@ torchaudio===0.10.2+cu113
 jupyterlab
 nb_black
 pyspark
+pywin32; sys_platform == 'win32'
+pywinpty; sys_platform == 'win32'
 
 # precommit
 pre-commit

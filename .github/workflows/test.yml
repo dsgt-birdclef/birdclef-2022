@@ -1,4 +1,4 @@
-name: Lint and Test
+name: Test
 
 on:
   pull_request:
@@ -8,9 +8,13 @@ permissions:
 
 jobs:
   build:
-    name: Lint and Test
-    runs-on: windows-latest
+    name: Test
+    runs-on: ubuntu-latest
     steps:
+      - name: Add OS dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libsndfile1
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Set up Python 3.9 environment
@@ -21,10 +25,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run pre-commit as linter
-        uses: pre-commit/action@v2.0.3
-        with:
-          extra_args: --all-files
       - name: Test with pytest
         run: |
           pytest -vv tests/
