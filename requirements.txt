@@ -349,10 +349,13 @@ pytz==2021.3
     # via
     #   babel
     #   pandas
-pywin32==303
-    # via jupyter-core
-pywinpty==1.1.6
+pywin32==303 ; sys_platform == "win32"
     # via
+    #   -r requirements.in
+    #   jupyter-core
+pywinpty==1.1.6 ; sys_platform == "win32"
+    # via
+    #   -r requirements.in
     #   jupyter-server
     #   terminado
 pyyaml==6.0
