@@ -1,4 +1,4 @@
-# birclef-2022
+# birdclef-2022
 
 This repository contains code for the [birdclef-2022] Kaggle competition for the
 Data Science at Georgia Tech team.
@@ -158,6 +158,19 @@ The majority of development notes can be found under the [notes](notes)
 directory.
 
 - [acmiyaguchi's notes](notes/acmiyaguchi-NOTES.md)
+
+### adding dependencies
+
+This repository uses `pip-compile` to maintain dependencies. Please add direct dependencies to `requirements.in`, rather than modifying `requirements.txt`. After adding a dependency, run `pip-compile` to generate a new `requirements.txt` file. The sequence looks something like:
+
+```powershell
+pipx install pip-tools  # if you haven't installed it already via the quickstart guide
+
+# add any new direct dependencies to requirements.in
+pip-compile
+# observe that requirements.txt has changed locally
+# commit the result
+```
 
 ### kaggle submission
 
