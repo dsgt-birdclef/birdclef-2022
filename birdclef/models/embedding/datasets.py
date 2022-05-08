@@ -1,12 +1,16 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+import librosa
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset, IterableDataset, random_split
 from torchvision import transforms
+
+from birdclef.utils import slice_seconds
 
 
 class TileTripletsDataset(Dataset):
@@ -43,6 +47,74 @@ class TileTripletsDataset(Dataset):
         if self.transform:
             sample = self.transform(sample)
         return sample
+
+
+@lru_cache(maxsize=32)
+def load_audio_cached(path: Path, sr: int = 32000, seconds=5):
+    y, _ = librosa.load(path.as_posix(), sr=sr)
+    return slice_seconds(y, seconds)
+
+
+class TileTripletsIterableDataset(IterableDataset):
+    """A data loader that generates triplets from the consolidated motif dataset.
+
+    The motif dataset contains the matrix profile and profile index, which
+    alongside the tile directory can be used to ensure that we always stream
+    audio correctly. There is some trickiness involved to ensure that we can
+    split the work across multiple workers.
+    """
+
+    def __init__(
+        self, motif_consolidated_df: pd.DataFrame, tile_path: Path, transform=None
+    ):
+        self.df = motif_consolidated_df.sample(frac=1)
+        self.tile_path = Path(tile_path)
+        self.transform = transform
+
+    def get_motif_pairs(self, start, end, n_queues=32):
+        """Find all the motif pairs from all the audio files and put them into
+        an iterable. We try to avoid placing pairs next to each other, so that
+        we can load mini-batch data in an efficient way.
+
+        n_queues: the number of open audio files to have at a given time
+        """
+        row_iter = iter(self.df.iloc[start:end].itertuples())
+
+        # set a default value that is true
+        open_files = [None]
+        while open_files:
+            # remove empty elements from the open files
+            open_files = [f for f in open_files if f is not None]
+
+            # add new elements to fill up the queue
+            while len(open_files) < n_queues and row_iter is not None:
+                try:
+                    row = next(row_iter)
+                except StopIteration:
+                    row_iter = None
+                    break
+                # load the audio
+                sliced = load_audio_cached(self.tile_path / row.source_name)
+                open_files.append((iter(enumerate(row.pi)), sliced))
+
+            # then yield values from it
+            for i in range(open_files):
+                pi_iter, sliced = open_files[i]
+                try:
+                    anchor_idx, neighbor_idx = next(pi_iter)
+                    yield dict(anchor=sliced[anchor_idx], neighbor=sliced[neighbor_idx])
+                except StopIteration:
+                    open_files[i] = None
+
+    def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            start, end = 0, -1
+        else:
+            per_worker = int(np.ceil(self.df.shape[0] / float(worker_info.num_workers)))
+            start = worker_info.id * per_worker
+            end = start + per_worker
+        return self.get_motif_pairs(start, end)
 
 
 class ToFloatTensor:
