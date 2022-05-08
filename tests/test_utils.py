@@ -26,13 +26,16 @@ def tone_short(tmp_path):
     yield path
 
 
-@pytest.mark.parametrize("offset", [0, -1, 9])
+@pytest.mark.parametrize("offset", [0, -1, 6])
 def test_load_audio(tone_long, sr, offset):
     duration = 5
     length = sr * duration
     y = load_audio(tone_long, offset, duration=duration)
     assert y.shape[0] == length
-    assert (y == 0).sum() == 0
+    if offset == 0:
+        assert (y == 0).sum() == 0
+    else:
+        assert (y == 0).sum() == sr
 
 
 def test_load_audio_short_centered(tone_short, sr):

@@ -27,6 +27,10 @@ def compute_offset(index, window_size, cens_total, data_total, window_extra=0):
 
 
 def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 32000):
+    """Load an audio fragment from a file.
+
+    This is typically used for padding smaller audio files with various offsets.
+    """
     # offset is the center point
     y, sr = librosa.load(input_path.as_posix(), sr=sr)
     pad_size = int(np.ceil(sr * duration / 2))
@@ -42,10 +46,11 @@ def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 320
     # offset is less than 0, we do some negative padding
     elif offset <= 0:
         offset = pad_size + max(offset, -pad_size)
-    elif offset + length >= y.shape[0]:
+    elif offset + length >= y_pad.shape[0]:
         offset = y_pad.shape[0] - length
     else:
-        pass
+        # we can start at the normal offset location
+        offset += pad_size
 
     y_trunc = y_pad[offset : offset + length]
     return np.resize(np.moveaxis(y_trunc, -1, 0), length)
