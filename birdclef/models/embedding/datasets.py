@@ -1,4 +1,3 @@
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -49,12 +48,6 @@ class TileTripletsDataset(Dataset):
         return sample
 
 
-@lru_cache(maxsize=32)
-def load_audio_cached(path: Path, sr: int = 32000, seconds=5):
-    y, _ = librosa.load(path.as_posix(), sr=sr)
-    return slice_seconds(y, seconds)
-
-
 class TileTripletsIterableDataset(IterableDataset):
     """A data loader that generates triplets from the consolidated motif dataset.
 
@@ -94,11 +87,14 @@ class TileTripletsIterableDataset(IterableDataset):
                     row_iter = None
                     break
                 # load the audio
-                sliced = load_audio_cached(self.tile_path / row.source_name)
+                y, _ = librosa.load(
+                    (self.tile_path / row.source_name).as_posix(), sr=32000
+                )
+                sliced = slice_seconds(y, 5)
                 open_files.append((iter(enumerate(row.pi)), sliced))
 
             # then yield values from it
-            for i in range(open_files):
+            for i in range(len(open_files)):
                 pi_iter, sliced = open_files[i]
                 try:
                     anchor_idx, neighbor_idx = next(pi_iter)
