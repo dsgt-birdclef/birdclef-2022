@@ -110,6 +110,8 @@ class TileTripletsIterableDataset(IterableDataset):
             per_worker = int(np.ceil(self.df.shape[0] / float(worker_info.num_workers)))
             start = worker_info.id * per_worker
             end = start + per_worker
+
+        # TODO: implement batching in the dataset instead of the dataloader
         return self.get_motif_pairs(start, end)
 
 
@@ -170,3 +172,23 @@ class TileTripletsDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         raise NotImplementedError()
+
+
+# TODO: implement the majority of the functionality here
+class TileTripletsIterableDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        motif_consolidated_df: pd.DataFrame,
+        data_dir: Path,
+        batch_size=4,
+        num_workers=8,
+    ):
+        super().__init__()
+        self.df = motif_consolidated_df
+        self.data_dir = data_dir
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.kwargs = dict(
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
