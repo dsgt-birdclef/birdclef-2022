@@ -2,6 +2,7 @@ import librosa
 import pandas as pd
 import pytest
 import soundfile as sf
+from torch.utils.data import DataLoader
 
 from birdclef.models.embedding import datasets
 
@@ -43,7 +44,7 @@ def test_tile_triplets_iterable_dataset_is_batched(tile_path, consolidated_df):
     batch_size = 2
     dataset = datasets.TileTripletsIterableDataset(consolidated_df, tile_path)
     count = 0
-    for batch in dataset:
+    for batch in DataLoader(dataset, batch_size=batch_size, num_workers=1):
         # TODO: assert the size of the batch tensor is correct
         for item in batch:
             assert "anchor" in item
