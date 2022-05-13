@@ -64,7 +64,7 @@ class TileTripletsIterableDataset(IterableDataset):
         self.tile_path = Path(tile_path)
         self.transform = transform
 
-    def get_motif_pairs(self, start, end, n_queues=32):
+    def get_motif_pairs(self, start: int, end: int, n_queues=32):
         """Find all the motif pairs from all the audio files and put them into
         an iterable. We try to avoid placing pairs next to each other, so that
         we can load mini-batch data in an efficient way.
@@ -103,15 +103,22 @@ class TileTripletsIterableDataset(IterableDataset):
                     open_files[i] = None
 
     def __iter__(self):
-        worker_info = torch.utils.data.get_worker_info()
-        if worker_info is None:
-            start, end = 0, -1
-        else:
-            per_worker = int(np.ceil(self.df.shape[0] / float(worker_info.num_workers)))
-            start = worker_info.id * per_worker
-            end = start + per_worker
-
         # TODO: implement batching in the dataset instead of the dataloader
+
+        # Tried handling this via worker_init_fn() but I couldn't get slicing to work since the dataset copied into each worker is a full TileTripletsIterableDataset entity...
+        # https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset
+        worker_info = torch.utils.data.get_worker_info()
+
+        # compute number of rows per worker
+        rows_per_worker = int(
+            np.ceil(self.df.shape[0] / float(worker_info.num_workers))
+        )
+
+        # compute start and end of dataset for each worker
+        worker_id = worker_info.id
+        start = worker_id * rows_per_worker
+        end = start + rows_per_worker
+
         return self.get_motif_pairs(start, end)
 
 
@@ -189,6 +196,18 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.kwargs = dict(
+            batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=True,
         )
+
+    def setup(self):
+        self.dataset = TileTripletsIterableDataset(
+            self.df,
+            self.data_dir,
+            transform=transforms.Compose([ToFloatTensor()]),
+        )
+        # TODO: Do we still need to do train/test splits here?
+
+    def train_dataloader(self):
+        return DataLoader(self.dataset, **self.kwargs)
