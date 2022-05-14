@@ -12,6 +12,21 @@ from torchvision import transforms
 from birdclef.utils import slice_seconds
 
 
+class ToFloatTensor:
+    """
+    Converts numpy arrays to float Variables in Pytorch.
+    """
+
+    def __call__(self, sample):
+        a, n, d = (
+            torch.from_numpy(sample["anchor"]).float(),
+            torch.from_numpy(sample["neighbor"]).float(),
+            torch.from_numpy(sample["distant"]).float(),
+        )
+        sample = {"anchor": a, "neighbor": n, "distant": d}
+        return sample
+
+
 class TileTripletsDataset(Dataset):
     def __init__(self, meta_df: pd.DataFrame, tile_dir: Path, transform=None):
         self.df = meta_df
@@ -61,12 +76,17 @@ class TileTripletsIterableDataset(IterableDataset):
         self,
         motif_consolidated_df: pd.DataFrame,
         tile_path: Path,
+        batch_size=32,
         transform=None,
         random_state: int = 2022,
     ):
+        self.min_batch_size = 3
         self.df = motif_consolidated_df.sample(frac=1, random_state=random_state)
         self.tile_path = Path(tile_path)
-        self.transform = transform
+        self.transform = transform or transforms.Compose([ToFloatTensor()])
+        self.batch_size = batch_size
+        if self.batch_size < self.min_batch_size:
+            raise ValueError(f"Batch size must be at least {self.min_batch_size}")
 
     def get_motif_pairs(self, start: int, end: int, n_queues=32):
         """Find all the motif pairs from all the audio files and put them into
@@ -95,20 +115,62 @@ class TileTripletsIterableDataset(IterableDataset):
                     (self.tile_path / row.source_name).as_posix(), sr=32000
                 )
                 sliced = slice_seconds(y, 5)
-                open_files.append((iter(enumerate(row.pi)), sliced))
+                # shuffle the indices
+                indices = list(enumerate(row.pi))
+                np.random.shuffle(indices)
+                open_files.append([iter(indices), sliced])
 
             # then yield values from it
             for i in range(len(open_files)):
                 pi_iter, sliced = open_files[i]
                 try:
                     anchor_idx, neighbor_idx = next(pi_iter)
-                    yield dict(anchor=sliced[anchor_idx], neighbor=sliced[neighbor_idx])
+                    row = dict(
+                        anchor=sliced[anchor_idx][1], neighbor=sliced[neighbor_idx][1]
+                    )
+                    yield row
                 except StopIteration:
                     open_files[i] = None
 
-    def __iter__(self):
-        # TODO: implement batching in the dataset instead of the dataloader
+    def _generate_triplets(self, batch):
+        """Generate triplets from a batch of motif pairs."""
+        batch_len = len(batch)
 
+        # TODO: this shuffling method is (potentially) slow because it
+        # requires iterating over all the batches and retrying to make
+        # sure that we don't have any accidentally matching pairs.
+        res = []
+        for i, row in enumerate(batch):
+            selector = ["anchor", "neighbor"][np.random.randint(2)]
+            # choose an index that's not the current batch index
+            while True:
+                j = np.random.randint(0, batch_len)
+                if i != j:
+                    break
+            d = self.transform(dict(**row, distant=batch[j][selector]))
+            res.append(d)
+
+        # and now we have to create an object that has all of the tensors
+        # batched up
+        return dict(
+            anchor=torch.stack([row["anchor"] for row in res]),
+            neighbor=torch.stack([row["neighbor"] for row in res]),
+            distant=torch.stack([row["distant"] for row in res]),
+        )
+
+    def _batch_triplet(self, iter, batch_size):
+        """Generate a new iterable that contains batch_size elements"""
+        batch = []
+        for row in iter:
+            batch.append(row)
+            if len(batch) == batch_size:
+                yield self._generate_triplets(batch)
+                batch = []
+        # note that we drop anything that isn't the full batch size, so we don't
+        # have to deal with the degenerate case where this is only a single item
+        # in the batch. This is equivalent to `drop_last` in the data loader
+
+    def __iter__(self):
         # Tried handling this via worker_init_fn() but I couldn't get slicing to
         # work since the dataset copied into each worker is a full
         # TileTripletsIterableDataset entity...
@@ -125,22 +187,10 @@ class TileTripletsIterableDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
-        return self.get_motif_pairs(start, end)
-
-
-class ToFloatTensor:
-    """
-    Converts numpy arrays to float Variables in Pytorch.
-    """
-
-    def __call__(self, sample):
-        a, n, d = (
-            torch.from_numpy(sample["anchor"]).float(),
-            torch.from_numpy(sample["neighbor"]).float(),
-            torch.from_numpy(sample["distant"]).float(),
-        )
-        sample = {"anchor": a, "neighbor": n, "distant": d}
-        return sample
+        for item in self._batch_triplet(
+            self.get_motif_pairs(start, end), self.batch_size
+        ):
+            yield item
 
 
 class TileTripletsDataModule(pl.LightningDataModule):
@@ -203,20 +253,28 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.kwargs = dict(
+            batch_size=None,
             num_workers=self.num_workers,
             pin_memory=True,
         )
         self.random_state = random_state or np.random.randint(2**31)
 
-    def setup(self):
+    def setup(self, stage: Optional[str] = None):
         # generate a random number to seed the dataset
         self.dataset = TileTripletsIterableDataset(
             self.df,
             self.data_dir,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
+            batch_size=self.batch_size,
         )
         # TODO: Do we still need to do train/test splits here?
 
     def train_dataloader(self):
         return DataLoader(self.dataset, **self.kwargs)
+
+    def val_dataloader(self):
+        raise NotImplementedError()
+
+    def test_dataloader(self):
+        raise NotImplementedError()
