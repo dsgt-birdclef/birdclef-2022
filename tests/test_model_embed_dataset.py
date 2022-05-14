@@ -1,8 +1,5 @@
-import librosa
 import numpy as np
-import pandas as pd
 import pytest
-import soundfile as sf
 import torch
 from torch.utils.data import DataLoader
 
@@ -38,18 +35,6 @@ def test_tile_triplets_datamodule(metadata_df, extract_triplet_path):
     assert len(dm.val_dataloader()) == 1
     with pytest.raises(NotImplementedError):
         dm.test_dataloader()
-
-
-@pytest.fixture()
-def consolidated_df(tile_path):
-    sr = 32000
-    n = 10
-    chirp = librosa.chirp(sr=sr, fmin=110, fmax=110 * 64, duration=15)
-    for i in range(n):
-        sf.write(f"{tile_path}/{i}.ogg", chirp, sr, format="ogg", subtype="vorbis")
-    return pd.DataFrame(
-        [{"source_name": f"{i}.ogg", "pi": [2, 1, 1]} for i in range(n)]
-    )
 
 
 def test_tile_triplets_iterable_dataset_batch_triplet(tile_path, consolidated_df):
@@ -109,8 +94,10 @@ def test_tile_triplets_iterable_datamodule(tile_path, consolidated_df):
     assert batch_count == (consolidated_df.shape[0] * 3) / batch_size
 
     # NOTE: we don't have a validation set
-    with pytest.raises(NotImplementedError):
-        dm.val_dataloader()
+    batch_count = 0
+    for _ in dm.val_dataloader():
+        batch_count += 1
+    assert batch_count == 1
 
     with pytest.raises(NotImplementedError):
         dm.test_dataloader()

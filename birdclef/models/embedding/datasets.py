@@ -79,6 +79,7 @@ class TileTripletsIterableDataset(IterableDataset):
         batch_size=32,
         transform=None,
         random_state: int = 2022,
+        limit=-1,
     ):
         self.min_batch_size = 3
         self.df = motif_consolidated_df.sample(frac=1, random_state=random_state)
@@ -87,6 +88,7 @@ class TileTripletsIterableDataset(IterableDataset):
         self.batch_size = batch_size
         if self.batch_size < self.min_batch_size:
             raise ValueError(f"Batch size must be at least {self.min_batch_size}")
+        self.limit = limit
 
     def get_motif_pairs(self, start: int, end: int, n_queues=32):
         """Find all the motif pairs from all the audio files and put them into
@@ -187,9 +189,14 @@ class TileTripletsIterableDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
+        count = 0
         for item in self._batch_triplet(
             self.get_motif_pairs(start, end), self.batch_size
         ):
+            # only take data from the first worker if we're going to limit data
+            if self.limit > 0 and (count >= self.limit or worker_id > 0):
+                break
+            count += 1
             yield item
 
 
@@ -246,6 +253,7 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
         batch_size=4,
         num_workers=8,
         random_state=None,
+        validation_batches=1,
     ):
         super().__init__()
         self.df = motif_consolidated_df
@@ -258,6 +266,7 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
             pin_memory=True,
         )
         self.random_state = random_state or np.random.randint(2**31)
+        self.validation_batches = validation_batches
 
     def setup(self, stage: Optional[str] = None):
         # generate a random number to seed the dataset
@@ -269,12 +278,20 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
         )
         # TODO: Do we still need to do train/test splits here?
+        self.val_dataset = TileTripletsIterableDataset(
+            self.df,
+            self.data_dir,
+            transform=transforms.Compose([ToFloatTensor()]),
+            random_state=self.random_state,
+            batch_size=self.batch_size,
+            limit=self.validation_batches,
+        )
 
     def train_dataloader(self):
         return DataLoader(self.dataset, **self.kwargs)
 
     def val_dataloader(self):
-        raise NotImplementedError()
+        return DataLoader(self.val_dataset, **self.kwargs)
 
     def test_dataloader(self):
         raise NotImplementedError()

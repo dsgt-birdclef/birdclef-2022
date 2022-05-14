@@ -68,3 +68,15 @@ def extract_triplet_path(metadata_df, tile_path, tmp_path):
     )
     assert res.exit_code == 0
     return output_path
+
+
+@pytest.fixture()
+def consolidated_df(tile_path):
+    sr = 32000
+    n = 10
+    chirp = librosa.chirp(sr=sr, fmin=110, fmax=110 * 64, duration=15)
+    for i in range(n):
+        sf.write(f"{tile_path}/{i}.ogg", chirp, sr, format="ogg", subtype="vorbis")
+    return pd.DataFrame(
+        [{"source_name": f"{i}.ogg", "pi": [2, 1, 1]} for i in range(n)]
+    )
