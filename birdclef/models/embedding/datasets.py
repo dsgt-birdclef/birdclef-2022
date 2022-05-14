@@ -58,9 +58,13 @@ class TileTripletsIterableDataset(IterableDataset):
     """
 
     def __init__(
-        self, motif_consolidated_df: pd.DataFrame, tile_path: Path, transform=None
+        self,
+        motif_consolidated_df: pd.DataFrame,
+        tile_path: Path,
+        transform=None,
+        random_state: int = 2022,
     ):
-        self.df = motif_consolidated_df.sample(frac=1)
+        self.df = motif_consolidated_df.sample(frac=1, random_state=random_state)
         self.tile_path = Path(tile_path)
         self.transform = transform
 
@@ -105,7 +109,9 @@ class TileTripletsIterableDataset(IterableDataset):
     def __iter__(self):
         # TODO: implement batching in the dataset instead of the dataloader
 
-        # Tried handling this via worker_init_fn() but I couldn't get slicing to work since the dataset copied into each worker is a full TileTripletsIterableDataset entity...
+        # Tried handling this via worker_init_fn() but I couldn't get slicing to
+        # work since the dataset copied into each worker is a full
+        # TileTripletsIterableDataset entity...
         # https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset
         worker_info = torch.utils.data.get_worker_info()
 
@@ -189,6 +195,7 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
         data_dir: Path,
         batch_size=4,
         num_workers=8,
+        random_state=None,
     ):
         super().__init__()
         self.df = motif_consolidated_df
@@ -196,16 +203,18 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.kwargs = dict(
-            batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=True,
         )
+        self.random_state = random_state or np.random.randint(2**31)
 
     def setup(self):
+        # generate a random number to seed the dataset
         self.dataset = TileTripletsIterableDataset(
             self.df,
             self.data_dir,
             transform=transforms.Compose([ToFloatTensor()]),
+            random_state=self.random_state,
         )
         # TODO: Do we still need to do train/test splits here?
 
