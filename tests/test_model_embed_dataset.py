@@ -66,7 +66,7 @@ def test_tile_triplets_iterable_dataset_is_batched(tile_path, consolidated_df):
         assert "neighbor" in batch
         assert "distant" in batch
         assert isinstance(batch["anchor"], torch.Tensor)
-        assert batch["anchor"].shape[0] == batch_size
+        assert batch["anchor"].shape == (batch_size, 32000 * 5)
 
 
 def test_tile_triplets_iterable_dataset_count(tile_path, consolidated_df):

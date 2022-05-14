@@ -113,10 +113,11 @@ class TileTripletsIterableDataset(IterableDataset):
                     row_iter = None
                     break
                 # load the audio
+                sr = 32000
                 y, _ = librosa.load(
-                    (self.tile_path / row.source_name).as_posix(), sr=32000
+                    (self.tile_path / row.source_name).as_posix(), sr=sr
                 )
-                sliced = slice_seconds(y, 5)
+                sliced = slice_seconds(y, sr, 5)
                 # shuffle the indices
                 indices = list(enumerate(row.pi))
                 np.random.shuffle(indices)
