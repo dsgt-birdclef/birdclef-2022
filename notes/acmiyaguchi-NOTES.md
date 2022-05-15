@@ -208,6 +208,19 @@ python -m birdclef.workflows.nocall fit-soundscape `
     data/intermediate/2022-03-12-lgb.txt
 ```
 
+With the v3 of the embedding:
+
+```powershell
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v3/version_2/checkpoints/epoch=15-step=19940.ckpt `
+    data/intermediate/2022-05-15-lgb.txt
+
+Early stopping, best iteration is:
+[48]    valid_0's auc: 0.794774
+best number of iterations: 48
+test score: 0.7835777969513948
+```
+
 ### submission classifier
 
 We'll use the primary motif from each track as a training example to train the
@@ -288,7 +301,7 @@ python -m birdclef.workflows.classify prepare-dataset `
 For now, we also also disable the use of reference motif during training because
 otherwise predictions on kaggle is really slow.
 
-```
+```powershell
 python -m birdclef.workflows.classify train `
     --birdclef-root data/raw/birdclef-2021 `
     --motif-root data/intermediate/2022-04-03-train-augment-250 `
@@ -304,3 +317,45 @@ python -m birdclef.workflows.classify predict `
     --classifier-source data/processed/model/2022-04-12-v4 `
     data/processed/submission/2022-04-12-v4.csv
 ```
+
+Lets make another model from v3, which uses a new dataloader.
+
+```powershell
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-04-03-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v3/version_2/checkpoints/epoch=15-step=19940.ckpt `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-15-v5
+
+# test score: 0.6803848196188845
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-05-15-v5 `
+    data/processed/submission/2022-05-15-v5.csv
+```
+
+Forgot that I need to reprocess the augmented dataset because the load audio
+stuff was broken.
+
+```powershell
+python -m birdclef.workflows.classify prepare-dataset `
+    --motif-root data/intermediate/2022-04-03-extracted-top-motif `
+    --num-per-class 250 `
+    data/intermediate/2022-05-15-train-augment-250
+
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-05-15-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v3/version_2/checkpoints/epoch=15-step=19940.ckpt `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-15-v6
+
+# test score: 0.6797017866812488
+```
+
+The score is almost the same as it was before, so perhaps the broken load audio
+wasn't to blame in this case.
