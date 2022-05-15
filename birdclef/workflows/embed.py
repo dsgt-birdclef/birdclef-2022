@@ -39,15 +39,24 @@ def embed():
 @embed.command(name="summary")
 @click.argument("metadata", type=click.Path(exists=True, dir_okay=False))
 @click.argument("dataset-dir", type=click.Path(exists=True, file_okay=False))
+@click.option(
+    "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
+)
 @click.option("--dim", type=int, default=64)
 @click.option("--n-mels", type=int, default=64)
-def model_summary(metadata, dataset_dir, dim, n_mels):
+def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
     metadata_df = pd.read_parquet(metadata)
-    data_module = datasets.TileTripletsDataModule(
+    module = (
+        datasets.TileTripletsIterableDataModule
+        if datamodule == "iterable"
+        else datasets.TileTripletsDataModule
+    )
+    data_module = module(
         metadata_df,
         dataset_dir,
         batch_size=20,
         num_workers=4,
+        validation_batches=10,
     )
     model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
     trainer = pl.Trainer(
@@ -63,9 +72,12 @@ def model_summary(metadata, dataset_dir, dim, n_mels):
 @embed.command()
 @click.argument("metadata", type=click.Path(exists=True, dir_okay=False))
 @click.argument("dataset-dir", type=click.Path(exists=True, file_okay=False))
+@click.option(
+    "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
+)
 @click.option("--dim", type=int, default=64)
 @click.option("--n-mels", type=int, default=64)
-@click.option("--name", type=str, default="tile2vec-v2")
+@click.option("--name", type=str, default="tile2vec-v3")
 @click.option(
     "--root-dir",
     type=click.Path(file_okay=False),
@@ -78,6 +90,7 @@ def model_summary(metadata, dataset_dir, dim, n_mels):
 def fit(
     metadata,
     dataset_dir,
+    datamodule,
     dim,
     n_mels,
     name,
@@ -89,14 +102,20 @@ def fit(
 ):
     root_dir = Path(root_dir)
     metadata_df = pd.read_parquet(metadata)
-    data_module = datasets.TileTripletsDataModule(
+    module = (
+        datasets.TileTripletsIterableDataModule
+        if datamodule == "iterable"
+        else datasets.TileTripletsDataModule
+    )
+    data_module = module(
         metadata_df,
         dataset_dir,
         # With the 900k param model at 16 bits, apparently this can go up to
         # 449959. I don't trust this value though, and empirically 100 per batch
         # fills up gpu memory quite nicely.
         batch_size=100,
-        num_workers=6,
+        num_workers=12,
+        validation_batches=10,
     )
     if checkpoint:
         model = tilenet.TileNet.load_from_checkpoint(

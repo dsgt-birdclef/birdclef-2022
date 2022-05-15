@@ -6,10 +6,11 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from scipy.stats import mode
 from torch.utils.data import DataLoader, Dataset, IterableDataset, random_split
 from torchvision import transforms
 
-from birdclef.utils import slice_seconds
+from birdclef.utils import chunks, slice_seconds
 
 
 class ToFloatTensor:
@@ -90,6 +91,14 @@ class TileTripletsIterableDataset(IterableDataset):
             raise ValueError(f"Batch size must be at least {self.min_batch_size}")
         self.limit = limit
 
+    def _cens_to_seconds_mode(self, pi, cens_window):
+        """Convert the profile index to seconds and mode.
+
+        pi: the profile index
+        cens_window: the window size in seconds
+        """
+        return [mode(chunk)[0][0] for chunk in chunks(pi // cens_window, cens_window)]
+
     def get_motif_pairs(self, start: int, end: int, n_queues=32):
         """Find all the motif pairs from all the audio files and put them into
         an iterable. We try to avoid placing pairs next to each other, so that
@@ -97,6 +106,7 @@ class TileTripletsIterableDataset(IterableDataset):
 
         n_queues: the number of open audio files to have at a given time
         """
+        error_count = 0
         row_iter = iter(self.df.iloc[start:end].itertuples())
 
         # set a default value that is true
@@ -118,8 +128,16 @@ class TileTripletsIterableDataset(IterableDataset):
                     (self.tile_path / row.source_name).as_posix(), sr=sr
                 )
                 sliced = slice_seconds(y, sr, 5)
+                if not sliced:
+                    continue
                 # shuffle the indices
-                indices = list(enumerate(row.pi))
+                indices = list(
+                    enumerate(
+                        self._cens_to_seconds_mode(
+                            np.array(row.pi), row.matrix_profile_window
+                        )
+                    )
+                )
                 np.random.shuffle(indices)
                 open_files.append([iter(indices), sliced])
 
@@ -134,6 +152,14 @@ class TileTripletsIterableDataset(IterableDataset):
                     yield row
                 except StopIteration:
                     open_files[i] = None
+                except IndexError:
+                    # This is because we drop the last index during
+                    # slice_seconds, so we get into situations where the motif
+                    # pair doesn't exist
+                    error_count += 1
+                    continue
+        if error_count > 0:
+            print(f"encountered {error_count} errors")
 
     def _generate_triplets(self, batch):
         """Generate triplets from a batch of motif pairs."""
@@ -209,6 +235,8 @@ class TileTripletsDataModule(pl.LightningDataModule):
         batch_size=4,
         num_workers=8,
         shuffle=True,
+        *args,
+        **kwargs,
     ):
         super().__init__()
         self.meta_df = meta_df
@@ -255,6 +283,8 @@ class TileTripletsIterableDataModule(pl.LightningDataModule):
         num_workers=8,
         random_state=None,
         validation_batches=1,
+        *args,
+        **kwargs,
     ):
         super().__init__()
         self.df = motif_consolidated_df

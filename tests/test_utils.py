@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from birdclef.utils import load_audio
+from birdclef.utils import load_audio, slice_seconds
 
 
 @pytest.fixture
@@ -46,3 +46,12 @@ def test_load_audio_short_centered(tone_short, sr):
     assert (y == 0.0).sum() > 0
     assert (y[:sr] > 0).sum() == 0
     assert (y[-sr:] > 0).sum() == 0
+
+
+def test_slice_seconds():
+    x = np.ones(16)
+    res = slice_seconds(x, 1, 5)
+    assert len(res) == 3
+    i, v = res[1]
+    assert i == 5
+    assert (v - np.ones(5)).sum() == 0

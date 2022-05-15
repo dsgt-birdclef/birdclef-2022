@@ -78,5 +78,12 @@ def consolidated_df(tile_path):
     for i in range(n):
         sf.write(f"{tile_path}/{i}.ogg", chirp, sr, format="ogg", subtype="vorbis")
     return pd.DataFrame(
-        [{"source_name": f"{i}.ogg", "pi": [2, 1, 1]} for i in range(n)]
+        [
+            {
+                "source_name": f"{i}.ogg",
+                "matrix_profile_window": 1,
+                "pi": [2, 1, 1],
+            }
+            for i in range(n)
+        ]
     )
