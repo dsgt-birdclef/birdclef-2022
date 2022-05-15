@@ -22,6 +22,7 @@ setuptools.setup(
         "pytorch-lightning",
         "torch-audiomentations",
         "torch-summary",
+        "audiomentations",
         "lightgbm",
         "simple-fast-python",
     ],
