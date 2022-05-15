@@ -11,6 +11,7 @@ import torch
 import tqdm
 from simple import simple_fast
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, Dataset
 from torch_audiomentations import AddColoredNoise, Compose, Gain, PitchShift, Shift
 
 from birdclef.datasets import soundscape_2021
@@ -27,28 +28,35 @@ def _load_motif_row(path: Path, sr: int, scored_birds: "list[str]"):
     return dict(name=path.name.split(".")[0], data=y, label=label)
 
 
-def load_motif(
-    motif_root: Path,
-    scored_birds: "list[str]" = [],
-    sr: int = 32000,
-    parallelism: int = 4,
-    limit: int = -1,
-    load_other=False,
-) -> pd.DataFrame:
-    # we can (probably) load this into memory, it's only 600mb of compressed ogg
-    # TODO: load iterable chunks of dataframes?
-    paths = list(motif_root.glob("**/*.ogg"))
-    if not load_other:
-        paths = [p for p in paths if p.parent.name in scored_birds]
-    if limit > 0:
-        paths = random.sample(paths, limit)
-    with Pool(parallelism) as p:
-        res = p.map(
-            partial(_load_motif_row, scored_birds=scored_birds, sr=sr),
-            tqdm.tqdm(paths),
-            chunksize=1,
-        )
-    return pd.DataFrame([row for row in res if row])
+class MotifDataset(Dataset):
+    def __init__(
+        self,
+        motif_root: Path,
+        scored_birds: "list[str]" = [],
+        sr: int = 32000,
+        limit: int = -1,
+        load_other=False,
+    ):
+        self.sr = sr
+        self.scored_birds = scored_birds
+        self.paths = list(motif_root.glob("**/*.ogg"))
+        if not load_other:
+            self.paths = [p for p in self.paths if p.parent.name in self.scored_birds]
+        if limit > 0:
+            self.paths = random.sample(self.paths, limit)
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx: int):
+        path = self.paths[idx]
+        motif_row = _load_motif_row(path, self.sr, self.scored_birds)
+        # return pd.DataFrame([motif_row])
+        return motif_row
+
+
+def motif_dataloader(motif_dataset: MotifDataset, batch_size: int, shuffle=False):
+    return DataLoader(dataset=motif_dataset, shuffle=shuffle, batch_size=batch_size)
 
 
 def augment_samples(X, batch_size=50, sr=32000):
