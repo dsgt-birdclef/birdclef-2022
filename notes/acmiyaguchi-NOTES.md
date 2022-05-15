@@ -67,7 +67,7 @@ python -m birdclef.workflows.motif motif-track `
 
 ### triplet formation
 
-The sampling methodology splits the dataset into four partitions.
+The naive sampling methodology splits the dataset into four partitions.
 
 For neighbors:
 
@@ -96,6 +96,11 @@ sample dataset, shuffle, and take the first 100k samples. This should have
 roughly the same distributional assumptions as the premise, while going through
 a larger number of permutations. Note that that for each sample, we also shift
 the audio track in time.
+
+Over time, we moved away from computing input from the primary motifs. Instead,
+we utilize the motif pairs across the entire dataset and run it through the
+model. We ignore underrepresentation between species to the benefit of being
+able to run the entire training process online.
 
 - https://pytorch-lightning.readthedocs.io/en/latest/starter/converting.html
 - https://towardsdatascience.com/from-pytorch-to-pytorch-lightning-a-gentle-introduction-b371b7caaf09
@@ -127,6 +132,19 @@ amount of noise to the input signal before it is passed into the the spectrogram
 layer. We choose to stick with single precision layers (32 bit floats) due to
 numerical stability. Despite this choice, we still see the loss turn into NaN on
 occasion.
+
+We change the dataloader, so instead of using the pre-computed triplets we can
+use the audio files directly.
+
+```powershell
+python -m birdclef.workflows.embed summary `
+    .\data\intermediate\2022-04-03-motif-consolidated.parquet `
+    .\data\raw\birdclef-2022
+
+python -m birdclef.workflows.embed fit `
+    .\data\intermediate\2022-04-03-motif-consolidated.parquet `
+    .\data\raw\birdclef-2022
+```
 
 ### no-call classifier
 

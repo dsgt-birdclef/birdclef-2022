@@ -63,9 +63,12 @@ def slice_seconds(data, sample_rate, seconds=5, pad_seconds=0):
     pad = sample_rate * pad_seconds
     indexes = np.array(
         [np.arange(i, i + k + pad) for i in range(0, n, k) if i + k + pad <= n]
-    )
+    ).astype(int)
     indexed = data[indexes]
-    return list(zip((np.arange(len(indexed)) + 1) * seconds, indexed))
+    if indexed.shape[0] == 0:
+        return []
+    time_index = np.arange(indexed.shape[0] + 1) * seconds
+    return list(zip(time_index, indexed))
 
 
 def chunks(lst, n):
