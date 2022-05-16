@@ -143,7 +143,8 @@ python -m birdclef.workflows.embed summary `
 
 python -m birdclef.workflows.embed fit `
     .\data\intermediate\2022-04-03-motif-consolidated.parquet `
-    .\data\raw\birdclef-2022
+    .\data\raw\birdclef-2022 `
+    --name tile2vec-v5
 ```
 
 ### no-call classifier
