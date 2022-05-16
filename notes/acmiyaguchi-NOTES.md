@@ -208,7 +208,7 @@ python -m birdclef.workflows.nocall fit-soundscape `
     data/intermediate/2022-03-12-lgb.txt
 ```
 
-With the v3 of the embedding:
+With the v3 of the embedding, using the iterable dataloader:
 
 ```powershell
 python -m birdclef.workflows.nocall fit-soundscape `
@@ -219,6 +219,20 @@ Early stopping, best iteration is:
 [48]    valid_0's auc: 0.794774
 best number of iterations: 48
 test score: 0.7835777969513948
+```
+
+With v4 using the full resnet-18 model:
+
+```powershell
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v4/version_3/checkpoints/epoch=4-step=9145.ckpt `
+    --dim 512 `
+    data/intermediate/2022-05-15-lgb-v4.txt
+
+Early stopping, best iteration is:
+[29]    valid_0's auc: 0.814665
+best number of iterations: 29
+test score: 0.7673639045320462
 ```
 
 ### submission classifier
@@ -359,3 +373,23 @@ python -m birdclef.workflows.classify train `
 
 The score is almost the same as it was before, so perhaps the broken load audio
 wasn't to blame in this case.
+
+Lets use v4, which has the full resnet-model:
+
+```powershell
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-04-03-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v4/version_3/checkpoints/epoch=4-step=9145.ckpt `
+    --dim 512 `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-15-v6
+
+# test score: 0.6551828403860988
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-05-15-v6 `
+    data/processed/submission/2022-05-15-v6.csv
+```
