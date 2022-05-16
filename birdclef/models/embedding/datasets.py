@@ -196,15 +196,17 @@ class TileTripletsIterableDataset(IterableDataset):
                 j = np.random.randint(0, batch_len)
                 if i != j:
                     break
-            d = self.transform(dict(**row, distant=batch[j][selector]))
+            d = dict(**row, distant=batch[j][selector])
             res.append(d)
 
         # and now we have to create an object that has all of the tensors
         # batched up
-        return dict(
-            anchor=torch.stack([row["anchor"] for row in res]),
-            neighbor=torch.stack([row["neighbor"] for row in res]),
-            distant=torch.stack([row["distant"] for row in res]),
+        return self.transform(
+            dict(
+                anchor=np.stack([row["anchor"] for row in res]),
+                neighbor=np.stack([row["neighbor"] for row in res]),
+                distant=np.stack([row["distant"] for row in res]),
+            )
         )
 
     def _batch_triplet(self, iter, batch_size):

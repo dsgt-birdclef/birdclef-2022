@@ -77,7 +77,7 @@ def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
 )
 @click.option("--dim", type=int, default=512)
 @click.option("--n-mels", type=int, default=64)
-@click.option("--name", type=str, default="tile2vec-v4")
+@click.option("--name", type=str, default="tile2vec-v5")
 @click.option(
     "--root-dir",
     type=click.Path(file_okay=False),
@@ -87,6 +87,7 @@ def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
 @click.option("--limit-val-batches", type=int, default=None)
 @click.option("--max-epochs", type=int, default=20)
 @click.option("--checkpoint", type=str)
+@click.option("--parallelism", type=int, default=12)
 def fit(
     metadata,
     dataset_dir,
@@ -99,6 +100,7 @@ def fit(
     limit_val_batches,
     max_epochs,
     checkpoint,
+    parallelism,
 ):
     root_dir = Path(root_dir)
     metadata_df = pd.read_parquet(metadata)
@@ -116,7 +118,7 @@ def fit(
         # The default model has 20m parameters which will take much longer to
         # finish.
         batch_size=64,
-        num_workers=8,
+        num_workers=parallelism,
         validation_batches=50,
     )
     if checkpoint:
