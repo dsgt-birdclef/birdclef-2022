@@ -42,7 +42,7 @@ def embed():
 @click.option(
     "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
 )
-@click.option("--dim", type=int, default=64)
+@click.option("--dim", type=int, default=512)
 @click.option("--n-mels", type=int, default=64)
 def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
     metadata_df = pd.read_parquet(metadata)
@@ -56,7 +56,7 @@ def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
         dataset_dir,
         batch_size=20,
         num_workers=4,
-        validation_batches=10,
+        validation_batches=50,
     )
     model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
     trainer = pl.Trainer(
@@ -75,9 +75,9 @@ def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
 @click.option(
     "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
 )
-@click.option("--dim", type=int, default=64)
+@click.option("--dim", type=int, default=512)
 @click.option("--n-mels", type=int, default=64)
-@click.option("--name", type=str, default="tile2vec-v3")
+@click.option("--name", type=str, default="tile2vec-v4")
 @click.option(
     "--root-dir",
     type=click.Path(file_okay=False),
@@ -113,9 +113,11 @@ def fit(
         # With the 900k param model at 16 bits, apparently this can go up to
         # 449959. I don't trust this value though, and empirically 100 per batch
         # fills up gpu memory quite nicely.
-        batch_size=100,
-        num_workers=12,
-        validation_batches=10,
+        # The default model has 20m parameters which will take much longer to
+        # finish.
+        batch_size=64,
+        num_workers=8,
+        validation_batches=50,
     )
     if checkpoint:
         model = tilenet.TileNet.load_from_checkpoint(
@@ -139,14 +141,14 @@ def fit(
         detect_anomaly=True,
         max_epochs=max_epochs,
         callbacks=[
-            # EarlyStopping(monitor="val_loss", mode="min"),
+            EarlyStopping(monitor="val_loss", mode="min"),
             # NOTE: need to figure out how to change the model so that it
             # actually passes this batch gradient condition.
             # CheckBatchGradient(),
             ModelCheckpoint(
                 monitor="val_loss",
                 auto_insert_metric_name=True,
-                save_top_k=3,
+                save_top_k=5,
                 train_time_interval=timedelta(minutes=15),
             ),
         ],

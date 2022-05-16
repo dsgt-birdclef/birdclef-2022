@@ -218,7 +218,7 @@ class TileTripletsIterableDataset(IterableDataset):
 
         count = 0
         for item in self._batch_triplet(
-            self.get_motif_pairs(start, end), self.batch_size
+            self.get_motif_pairs(start, end, self.batch_size), self.batch_size
         ):
             # only take data from the first worker if we're going to limit data
             if self.limit > 0 and (count >= self.limit or worker_id > 0):
