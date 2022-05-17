@@ -49,8 +49,8 @@ class ResidualBlock(pl.LightningModule):
 class TileNet(pl.LightningModule):
     def __init__(
         self,
-        z_dim=64,
-        n_mels=64,
+        z_dim=512,
+        n_mels=128,
         num_blocks=[2, 2, 2, 2, 2],
         fmin=0,
         fmax=16000,
@@ -80,11 +80,11 @@ class TileNet(pl.LightningModule):
             fmax=fmax,
             sr=sample_rate,
             trainable_mel=True,
-            # trainable_STFT=True,
+            trainable_STFT=True,
         )
         print(self.spec_layer)
 
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(128, num_blocks[1], stride=2)
