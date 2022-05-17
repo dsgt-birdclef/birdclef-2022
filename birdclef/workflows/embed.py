@@ -43,7 +43,7 @@ def embed():
     "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
 )
 @click.option("--dim", type=int, default=512)
-@click.option("--n-mels", type=int, default=64)
+@click.option("--n-mels", type=int, default=128)
 def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
     metadata_df = pd.read_parquet(metadata)
     module = (
@@ -76,7 +76,7 @@ def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
     "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
 )
 @click.option("--dim", type=int, default=512)
-@click.option("--n-mels", type=int, default=64)
+@click.option("--n-mels", type=int, default=128)
 @click.option("--name", type=str, default="tile2vec-v5")
 @click.option(
     "--root-dir",
