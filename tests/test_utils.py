@@ -48,10 +48,49 @@ def test_load_audio_short_centered(tone_short, sr):
     assert (y[-sr:] > 0).sum() == 0
 
 
-def test_slice_seconds():
+def test_slice_seconds_right_pad():
     x = np.ones(16)
-    res = slice_seconds(x, 1, 5)
-    assert len(res) == 3
-    i, v = res[1]
-    assert i == 5
+    res = slice_seconds(x, 1, 5, remainder_padding_type="right")
+    assert len(res) == 4
+
+    # assert 1st slice is correct
+    i, v = res[0]
+    assert i == 0
     assert (v - np.ones(5)).sum() == 0
+
+    # assert last slice is right-padded correctly
+    i, v = res[3]
+    assert i == 15
+    assert (v - np.array([1, 0, 0, 0, 0])).sum() == 0
+
+
+def test_slice_seconds_center_pad():
+    x = np.ones(17)
+    res = slice_seconds(x, 1, 5, remainder_padding_type="center")
+    assert len(res) == 4
+
+    # assert 1st slice is correct
+    i, v = res[0]
+    assert i == 0
+    assert (v - np.array([0, 1, 1, 1, 1])).sum() == 0
+
+    # assert last slice is center-padded correctly
+    i, v = res[3]
+    assert i == 15
+    assert (v - np.array([1, 1, 1, 0, 0])).sum() == 0
+
+
+def test_slice_seconds_right_aligned_pad():
+    x = np.arange(1, 8)
+    res = slice_seconds(x, 1, 5, remainder_padding_type="right-aligned")
+    assert len(res) == 2
+
+    # assert 1st slice is correct
+    i, v = res[0]
+    assert i == 0
+    assert (v - np.arange(1, 6)).sum() == 0
+
+    # assert last slice correct (which will contain some duplication)
+    i, v = res[3]
+    assert i == 15
+    assert (v - np.arange(3, 8)).sum() == 0
