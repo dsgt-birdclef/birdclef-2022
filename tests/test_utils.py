@@ -50,7 +50,7 @@ def test_load_audio_short_centered(tone_short, sr):
 
 def test_slice_seconds_right_pad():
     x = np.ones(16)
-    res = slice_seconds(x, 1, 5, remainder_padding_type="right")
+    res = slice_seconds(x, 1, 5, padding_type="right")
     assert len(res) == 4
 
     # assert 1st slice is correct
@@ -66,7 +66,7 @@ def test_slice_seconds_right_pad():
 
 def test_slice_seconds_center_pad():
     x = np.ones(17)
-    res = slice_seconds(x, 1, 5, remainder_padding_type="center")
+    res = slice_seconds(x, 1, 5, padding_type="center")
     assert len(res) == 4
 
     # assert 1st slice is correct
@@ -80,9 +80,9 @@ def test_slice_seconds_center_pad():
     assert (v - np.array([1, 1, 1, 0, 0])).sum() == 0
 
 
-def test_slice_seconds_right_aligned_pad():
+def test_slice_seconds_right_align_pad():
     x = np.arange(1, 8)
-    res = slice_seconds(x, 1, 5, remainder_padding_type="right-aligned")
+    res = slice_seconds(x, 1, 5, padding_type="right-align")
     assert len(res) == 2
 
     # assert 1st slice is correct
@@ -91,6 +91,6 @@ def test_slice_seconds_right_aligned_pad():
     assert (v - np.arange(1, 6)).sum() == 0
 
     # assert last slice correct (which will contain some duplication)
-    i, v = res[3]
-    assert i == 15
+    i, v = res[1]
+    assert i == 5
     assert (v - np.arange(3, 8)).sum() == 0
