@@ -75,7 +75,7 @@ def model_summary(metadata, dataset_dir, datamodule, dim):
     "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
 )
 @click.option("--dim", type=int, default=512)
-@click.option("--name", type=str, default="tile2vec-v5")
+@click.option("--name", type=str, default="tile2vec-v6")
 @click.option(
     "--root-dir",
     type=click.Path(file_okay=False),
