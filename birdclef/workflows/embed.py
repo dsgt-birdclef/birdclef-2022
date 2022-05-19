@@ -43,8 +43,7 @@ def embed():
     "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
 )
 @click.option("--dim", type=int, default=512)
-@click.option("--n-mels", type=int, default=128)
-def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
+def model_summary(metadata, dataset_dir, datamodule, dim):
     metadata_df = pd.read_parquet(metadata)
     module = (
         datasets.TileTripletsIterableDataModule
@@ -58,7 +57,7 @@ def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
         num_workers=4,
         validation_batches=50,
     )
-    model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
+    model = tilenet.TileNet(z_dim=dim)
     trainer = pl.Trainer(
         gpus=-1,
         # precision=16,
@@ -76,7 +75,6 @@ def model_summary(metadata, dataset_dir, datamodule, dim, n_mels):
     "--datamodule", type=click.Choice(["iterable", "legacy"]), default="iterable"
 )
 @click.option("--dim", type=int, default=512)
-@click.option("--n-mels", type=int, default=128)
 @click.option("--name", type=str, default="tile2vec-v5")
 @click.option(
     "--root-dir",
@@ -93,7 +91,6 @@ def fit(
     dataset_dir,
     datamodule,
     dim,
-    n_mels,
     name,
     root_dir,
     limit_train_batches,
@@ -123,10 +120,10 @@ def fit(
     )
     if checkpoint:
         model = tilenet.TileNet.load_from_checkpoint(
-            root_dir / name / checkpoint, z_dim=dim, n_mels=n_mels
+            root_dir / name / checkpoint, z_dim=dim
         )
     else:
-        model = tilenet.TileNet(z_dim=dim, n_mels=n_mels)
+        model = tilenet.TileNet(z_dim=dim)
 
     trainer = pl.Trainer(
         gpus=-1,
