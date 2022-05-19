@@ -7,9 +7,11 @@ from pathlib import Path
 import click
 import numpy as np
 import pandas as pd
+import torch
 import tqdm
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from torch.utils.data import DataLoader
 
 from birdclef.datasets import soundscape
 from birdclef.models.classifier import datasets
@@ -146,8 +148,12 @@ def train(
         motif_root=motif_root, scored_birds=scored_birds, limit=limit
     )
 
-    soundscape_noise = datasets.load_soundscape_noise(
+    """soundscape_noise = datasets.load_soundscape_noise(
         Path(birdclef_root), parallelism=parallelism
+    )"""
+
+    noise_dataset = datasets.NoiseDataset(
+        birdclef_2021_root=birdclef_root, parallelism=parallelism
     )
 
     model, device = datasets.load_embedding_model(embedding_checkpoint, dim)
@@ -161,8 +167,14 @@ def train(
     # takes up a significant amount of memory. Windows will complain about not
     # being able to fit the memory into a page segment.
     batch_size = 50
-    motif_loader = datasets.motif_dataloader(
+    shuffle = False
+    """motif_loader = datasets.motif_dataloader(
         motif_dataset=motif_dataset, batch_size=batch_size
+    )"""
+    dataloader = DataLoader(
+        dataset=torch.utils.data.ConcatDataset([motif_dataset, noise_dataset]),
+        batch_size=batch_size,
+        shuffle=shuffle,
     )
     X = None
     """for chunk in tqdm.tqdm(chunks(X_raw, batch_size), total=len(X_raw) // batch_size):
@@ -180,7 +192,8 @@ def train(
                 else []
             )
         )"""
-    for batch in motif_loader:
+    label = []
+    for batch in dataloader:
         transformed_chunk = np.hstack(
             [
                 transform_input(
@@ -207,8 +220,9 @@ def train(
         else:
             # stack the X with the transformed chunk
             X = np.vstack([X, transformed_chunk])
+        label += batch["label"]
 
-    noise_raw = np.stack(soundscape_noise.data.values)
+    """noise_raw = np.stack(soundscape_noise.data.values)
     for chunk in tqdm.tqdm(
         chunks(noise_raw, batch_size), total=len(noise_raw) // batch_size
     ):
@@ -230,14 +244,14 @@ def train(
             X = transformed_chunk
         else:
             # stack the X with the transformed chunk
-            X = np.vstack([X, transformed_chunk])
+            X = np.vstack([X, transformed_chunk])"""
 
     print(f"done transforming data: {X.shape}")
 
-    label = []
+    """label = []
     for batch in motif_loader:
         label += batch["label"]
-    label += soundscape_noise.label.values.tolist()
+    label += soundscape_noise.label.values.tolist()"""
 
     le = LabelEncoder()
     le.fit(label)

@@ -11,7 +11,7 @@ import torch
 import tqdm
 from simple import simple_fast
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 from torch_audiomentations import AddColoredNoise, Compose, Gain, PitchShift, Shift
 
 from birdclef.datasets import soundscape_2021
@@ -55,8 +55,8 @@ class MotifDataset(Dataset):
         return motif_row
 
 
-def motif_dataloader(motif_dataset: MotifDataset, batch_size: int, shuffle=False):
-    return DataLoader(dataset=motif_dataset, shuffle=shuffle, batch_size=batch_size)
+"""def motif_dataloader(motif_dataset: MotifDataset, batch_size: int, shuffle=False):
+    return DataLoader(dataset=motif_dataset, shuffle=shuffle, batch_size=batch_size)"""
 
 
 def augment_samples(X, batch_size=50, sr=32000):
@@ -178,7 +178,28 @@ def load_soundscape_noise(birdclef_2021_root: Path, parallelism=4) -> pd.DataFra
     df = soundscape_2021.load(birdclef_2021_root, parallelism=parallelism)
     subset = df[df.y == 0].rename(columns={"x": "data", "audio_id": "name"})
     subset["label"] = "other"
-    return subset[["data", "label"]]
+    return subset[["name", "data", "label"]]
+
+
+class NoiseDataset(Dataset):
+    def __init__(self, birdclef_2021_root: Path, parallelism=4):
+        self.df = load_soundscape_noise(
+            birdclef_2021_root=birdclef_2021_root, parallelism=parallelism
+        )
+
+    def __len__(self):
+        return self.df.shape[0]
+
+    def __getitem__(self, idx: int):
+        return dict(
+            name=self.df.iloc[idx].name,
+            data=self.df.iloc[idx].data,
+            label=self.df.iloc[idx].label,
+        )
+
+
+"""def noise_dataloader(noise_dataset: NoiseDataset, batch_size: int, shuffle=False):
+    return DataLoader(dataset=noise_dataset, shuffle=shuffle, batch_size=batch_size)"""
 
 
 def load_embedding_model(embedding_checkpoint: Path, z_dim: int):
