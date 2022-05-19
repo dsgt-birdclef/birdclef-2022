@@ -236,6 +236,19 @@ best number of iterations: 29
 test score: 0.7673639045320462
 ```
 
+v5 with the audiomentations augmentation and increased resolution the image
+
+```powershell
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v5/version_10/checkpoints/epoch=2-step=5635.ckpt `
+    --dim 512 `
+    data/intermediate/2022-05-17-lgb-v5.txt
+
+[12]    valid_0's auc: 0.802236
+best number of iterations: 12
+test score: 0.7949921752738655
+```
+
 ### submission classifier
 
 We'll use the primary motif from each track as a training example to train the
@@ -393,4 +406,24 @@ python -m birdclef.workflows.classify predict `
     --birdclef-root data/raw/birdclef-2022 `
     --classifier-source data/processed/model/2022-05-15-v6 `
     data/processed/submission/2022-05-15-v6.csv
+```
+
+Then v5, with a dataloader that has augmentations and a higher fft dimension:
+
+```powershell
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-04-03-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v5/version_10/checkpoints/epoch=2-step=5635.ckpt `
+    --dim 512 `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-17-v7
+
+# test score: 0.7199668989292184
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-05-17-v7 `
+    data/processed/submission/2022-05-15-v7.csv
 ```
