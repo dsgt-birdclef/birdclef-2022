@@ -19,7 +19,6 @@ augment = Compose(
     [
         Gain(min_gain_in_db=-20, max_gain_in_db=20),
         AddGaussianSNR(min_snr_in_db=5, max_snr_in_db=40, p=0.5),
-        TimeStretch(min_rate=0.8, max_rate=1.25, p=0.5),
         PitchShift(min_semitones=-4, max_semitones=4, p=0.5),
     ]
 )
@@ -33,7 +32,10 @@ class Augmentations:
 
     def __call__(self, sample):
         keys = ["anchor", "neighbor", "distant"]
-        z = [augment(sample[key], sample_rate=32000) for key in keys]
+        # for the sake of reduced computation, leave the distant alone
+        z = [augment(sample[key], sample_rate=32000) for key in keys[:2]] + [
+            sample["distant"]
+        ]
         return dict(zip(keys, z))
 
 
@@ -147,7 +149,7 @@ class TileTripletsIterableDataset(IterableDataset):
                 y, _ = librosa.load(
                     (self.tile_path / row.source_name).as_posix(), sr=sr
                 )
-                sliced = slice_seconds(y, sr, 5)
+                sliced = slice_seconds(y, sr, 5, padding_type="right-align")
                 if not sliced:
                     continue
                 # shuffle the indices
