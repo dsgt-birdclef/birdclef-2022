@@ -15,7 +15,7 @@ def test_tilenet_train(metadata_df, extract_triplet_path, z_dim):
         batch_size=1,
         num_workers=1,
     )
-    model = tilenet.TileNet(z_dim=z_dim, n_mels=64)
+    model = tilenet.TileNet(z_dim=z_dim)
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(model, data_module)
 
@@ -41,7 +41,7 @@ def test_tilenet_train_iterable_dataloader(tile_path, consolidated_df, z_dim):
         batch_size=3,
         num_workers=2,
     )
-    model = tilenet.TileNet(z_dim=z_dim, n_mels=64)
+    model = tilenet.TileNet(z_dim=z_dim)
     trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(model, data_module)
 

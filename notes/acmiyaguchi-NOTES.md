@@ -143,7 +143,8 @@ python -m birdclef.workflows.embed summary `
 
 python -m birdclef.workflows.embed fit `
     .\data\intermediate\2022-04-03-motif-consolidated.parquet `
-    .\data\raw\birdclef-2022
+    .\data\raw\birdclef-2022 `
+    --name tile2vec-v6
 ```
 
 ### no-call classifier
@@ -206,6 +207,46 @@ are fairly low.
 python -m birdclef.workflows.nocall fit-soundscape `
     --embedding-checkpoint data/intermediate/embedding/tile2vec-v2/version_2/checkpoints/epoch=2-step=10849.ckpt `
     data/intermediate/2022-03-12-lgb.txt
+```
+
+With the v3 of the embedding, using the iterable dataloader:
+
+```powershell
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v3/version_2/checkpoints/epoch=15-step=19940.ckpt `
+    data/intermediate/2022-05-15-lgb.txt
+
+Early stopping, best iteration is:
+[48]    valid_0's auc: 0.794774
+best number of iterations: 48
+test score: 0.7835777969513948
+```
+
+With v4 using the full resnet-18 model:
+
+```powershell
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v4/version_3/checkpoints/epoch=4-step=9145.ckpt `
+    --dim 512 `
+    data/intermediate/2022-05-15-lgb-v4.txt
+
+Early stopping, best iteration is:
+[29]    valid_0's auc: 0.814665
+best number of iterations: 29
+test score: 0.7673639045320462
+```
+
+v5 with the audiomentations augmentation and increased resolution the image
+
+```powershell
+python -m birdclef.workflows.nocall fit-soundscape `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v5/version_10/checkpoints/epoch=2-step=5635.ckpt `
+    --dim 512 `
+    data/intermediate/2022-05-17-lgb-v5.txt
+
+[12]    valid_0's auc: 0.802236
+best number of iterations: 12
+test score: 0.7949921752738655
 ```
 
 ### submission classifier
@@ -288,7 +329,7 @@ python -m birdclef.workflows.classify prepare-dataset `
 For now, we also also disable the use of reference motif during training because
 otherwise predictions on kaggle is really slow.
 
-```
+```powershell
 python -m birdclef.workflows.classify train `
     --birdclef-root data/raw/birdclef-2021 `
     --motif-root data/intermediate/2022-04-03-train-augment-250 `
@@ -303,4 +344,86 @@ python -m birdclef.workflows.classify predict `
     --birdclef-root data/raw/birdclef-2022 `
     --classifier-source data/processed/model/2022-04-12-v4 `
     data/processed/submission/2022-04-12-v4.csv
+```
+
+Lets make another model from v3, which uses a new dataloader.
+
+```powershell
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-04-03-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v3/version_2/checkpoints/epoch=15-step=19940.ckpt `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-15-v5
+
+# test score: 0.6803848196188845
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-05-15-v5 `
+    data/processed/submission/2022-05-15-v5.csv
+```
+
+Forgot that I need to reprocess the augmented dataset because the load audio
+stuff was broken.
+
+```powershell
+python -m birdclef.workflows.classify prepare-dataset `
+    --motif-root data/intermediate/2022-04-03-extracted-top-motif `
+    --num-per-class 250 `
+    data/intermediate/2022-05-15-train-augment-250
+
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-05-15-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v3/version_2/checkpoints/epoch=15-step=19940.ckpt `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-15-v6
+
+# test score: 0.6797017866812488
+```
+
+The score is almost the same as it was before, so perhaps the broken load audio
+wasn't to blame in this case.
+
+Lets use v4, which has the full resnet-model:
+
+```powershell
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-04-03-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v4/version_3/checkpoints/epoch=4-step=9145.ckpt `
+    --dim 512 `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-15-v6
+
+# test score: 0.6551828403860988
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-05-15-v6 `
+    data/processed/submission/2022-05-15-v6.csv
+```
+
+Then v5, with a dataloader that has augmentations and a higher fft dimension:
+
+```powershell
+python -m birdclef.workflows.classify train `
+    --birdclef-root data/raw/birdclef-2021 `
+    --motif-root data/intermediate/2022-04-03-train-augment-250 `
+    --no-use-ref-motif `
+    --embedding-checkpoint data/intermediate/embedding/tile2vec-v5/version_10/checkpoints/epoch=2-step=5635.ckpt `
+    --dim 512 `
+    --filter-set data/raw/birdclef-2022/scored_birds.json `
+    data/processed/model/2022-05-17-v7
+
+# test score: 0.7199668989292184
+
+python -m birdclef.workflows.classify predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/model/2022-05-17-v7 `
+    data/processed/submission/2022-05-15-v7.csv
 ```

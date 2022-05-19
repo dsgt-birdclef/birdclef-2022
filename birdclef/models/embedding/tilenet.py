@@ -49,8 +49,8 @@ class ResidualBlock(pl.LightningModule):
 class TileNet(pl.LightningModule):
     def __init__(
         self,
-        z_dim=64,
-        n_mels=64,
+        z_dim=512,
+        n_mels=128,
         num_blocks=[2, 2, 2, 2, 2],
         fmin=0,
         fmax=16000,
@@ -80,15 +80,17 @@ class TileNet(pl.LightningModule):
             fmax=fmax,
             sr=sample_rate,
             trainable_mel=True,
-            # trainable_STFT=True,
+            trainable_STFT=True,
         )
         print(self.spec_layer)
 
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
+        self.layer3 = self._make_layer(256, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(512, num_blocks[3], stride=2)
+        self.layer5 = self._make_layer(self.z_dim, num_blocks[4], stride=2)
         self.pool = lambda x: F.avg_pool2d(x, 4)
         self.flatten = lambda x: x.view(x.size(0), -1)
 
@@ -109,7 +111,8 @@ class TileNet(pl.LightningModule):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        x = self.pool(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
         x = self.pool(x)
         x = self.flatten(x)
         # note, if we change the number of mels, this can cause some issues
