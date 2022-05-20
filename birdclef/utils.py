@@ -56,16 +56,44 @@ def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 320
     return np.resize(np.moveaxis(y_trunc, -1, 0), length)
 
 
-def slice_seconds(data, sample_rate, seconds=5, pad_seconds=0):
+def slice_seconds(data, sample_rate, seconds=5, pad_seconds=0, padding_type="center"):
     # return 2d array of the original data
-    n = len(data)
+    valid_padding_types = ["center", "right", "right-align"]
+    if padding_type not in valid_padding_types:
+        raise ValueError(f"padding_type must be one of: {valid_padding_types}")
+
+    # compute step size
     k = sample_rate * seconds
     pad = sample_rate * pad_seconds
+    step = k + pad
+
+    remainder = len(data) % step
+    if remainder:
+        # pad dataset based on padding type
+        padding_size = step - remainder
+        if padding_type == "right":
+            data = np.pad(data, (0, padding_size))
+        elif padding_type == "center":
+            left_padding = padding_size // 2
+            right_padding = left_padding if padding_size % 2 == 0 else left_padding + 1
+            data = np.pad(data, (left_padding, right_padding))
+        elif padding_type == "right-align":
+            # Get a full slice from the right side, then truncate the data
+            # to divide evenly by step size.  Append the full slice to the end.
+            last_slice = data[-step:]
+            remaining_data = data[: (len(data) // step * step)]
+            data = np.hstack((remaining_data, last_slice))
+
+    n = len(data)
     indexes = np.array(
-        [np.arange(i, i + k + pad) for i in range(0, n, k) if i + k + pad <= n]
-    )
+        [np.arange(i, i + step) for i in range(0, n, k) if i + step <= n]
+    ).astype(int)
     indexed = data[indexes]
-    return list(zip((np.arange(len(indexed)) + 1) * seconds, indexed))
+    if indexed.shape[0] == 0:
+        return []
+
+    time_index = np.arange(indexed.shape[0] + 1) * seconds
+    return list(zip(time_index, indexed))
 
 
 def chunks(lst, n):
