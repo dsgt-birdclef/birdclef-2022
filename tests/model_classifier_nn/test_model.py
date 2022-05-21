@@ -1,8 +1,6 @@
 import numpy as np
 import pytest
 import pytorch_lightning as pl
-import soundfile as sf
-from sklearn.preprocessing import LabelEncoder
 from torchsummary import summary
 
 from birdclef.models.classifier_nn.datasets import ClassifierDataModule
@@ -10,35 +8,6 @@ from birdclef.models.classifier_nn.model import ClassifierNet
 
 # TODO: move this module in a shared location
 from birdclef.workflows.embed import CheckBatchGradient
-
-
-@pytest.fixture
-def bird_species():
-    yield ["foo", "bar", "baz"]
-
-
-@pytest.fixture
-def train_root(tmp_path, bird_species):
-    sr = 32000
-    for i, bird in enumerate(bird_species):
-        path = tmp_path / bird
-        path.mkdir()
-        for j in range(2):
-            sf.write(
-                path / f"{j}.ogg",
-                np.ones(3 * 5 * sr) * i,
-                sr,
-                format="ogg",
-                subtype="vorbis",
-            )
-    return tmp_path
-
-
-@pytest.fixture
-def label_encoder(bird_species):
-    le = LabelEncoder()
-    le.fit(["noise"] + bird_species)
-    yield le
 
 
 @pytest.mark.parametrize("z_dim", [64, 113])
