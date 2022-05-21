@@ -1,3 +1,4 @@
+import importlib.resources as pkg_resources
 import os
 import webbrowser
 from datetime import date
@@ -8,16 +9,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, PackageLoader, select_autoescape
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import LabelEncoder
 
 from birdclef.models.embedding.tilenet import TileNet
-from birdclef.workflows import motif
-import importlib.resources as pkg_resources
-from birdclef.workflows import templates
-from jinja2 import Environment, PackageLoader, select_autoescape
+from birdclef.workflows import motif, templates
 
 ROOT = Path(__file__).parent.parent.parent
 
@@ -123,7 +121,7 @@ def main(intra, inter, checkpoint, parquet, outputdir, root, dim, name):
     #     # autoescape=select_autoescape()
     # )
     # template = env.get_template('index.html.j2');
-    template = pkg_resources.read_text(templates, 'index.html.j2')
+    template = pkg_resources.read_text(templates, "index.html.j2")
     output = template.render(
         intraspecies=intra,
         interspecies=inter,
