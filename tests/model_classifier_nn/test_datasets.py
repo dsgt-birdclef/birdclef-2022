@@ -54,3 +54,23 @@ def test_classifier_datamodule(train_root, label_encoder):
 
     with pytest.raises(NotImplementedError):
         dm.test_dataloader()
+
+
+@pytest.mark.parametrize("num_workers", [1, 4, 8])
+def test_classifier_datamodule_multiple_workers(train_root, label_encoder, num_workers):
+    dm = datasets.ClassifierDataModule(
+        train_root, label_encoder, batch_size=1, num_workers=num_workers, drop_last=True
+    )
+    dm.setup()
+    batch_count = 0
+    for X, y in dm.train_dataloader():
+        assert isinstance(X, torch.Tensor)
+        assert X.shape == (1, 5 * 32000)
+        assert isinstance(y, torch.Tensor)
+        assert y.shape == (1, len(label_encoder.classes_))
+        batch_count += 1
+
+    # figure out the range for the number of extra samples that are being added to the data
+    k = len(label_encoder.classes_)
+    assert batch_count >= (2 * (k)) * 3 + num_workers
+    assert batch_count < (2 * (k + 1)) * 3 + num_workers * 2
