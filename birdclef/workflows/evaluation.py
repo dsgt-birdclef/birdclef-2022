@@ -59,7 +59,7 @@ def evaluation():
 @click.option("--dim", default=512)
 @click.option("--name", default=date.today())
 def main(intra, inter, checkpoint, parquet, outputdir, root, dim, name):
-    model = TileNet.load_from_checkpoint(checkpoint, z_dim=512)
+    model = TileNet.load_from_checkpoint(checkpoint, dim=512)
     df = pd.read_parquet(parquet)
     df["species"] = df.source_name.apply(lambda x: x.split("/")[1])
     df[["species"]].groupby("species").size().sort_values(ascending=False)
