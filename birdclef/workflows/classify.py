@@ -7,9 +7,11 @@ from pathlib import Path
 import click
 import numpy as np
 import pandas as pd
+import torch
 import tqdm
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from torch.utils.data import DataLoader
 
 from birdclef.datasets import soundscape
 from birdclef.models.classifier import datasets
@@ -119,31 +121,16 @@ def train(
     parallelism,
 ):
     scored_birds = json.loads(Path(filter_set).read_text())
-    # TODO: read in smaller chunks and transform at the same time, this is
-    # unsustainable memory-wise
-    df = pd.concat(
-        [
-            datasets.load_motif(
-                Path(motif_root),
-                scored_birds=scored_birds,
-                limit=limit,
-                parallelism=parallelism,
-            ),
-            datasets.load_soundscape_noise(
-                Path(birdclef_root), parallelism=parallelism
-            ),
-        ]
-    )
-    if limit > 0:
-        df = df.iloc[:limit]
 
-    le = LabelEncoder()
-    le.fit(df.label)
-    ohe = OneHotEncoder()
-    ohe.fit(le.transform(df.label).reshape(-1, 1))
+    motif_dataset = datasets.MotifDataset(
+        motif_root=motif_root, scored_birds=scored_birds, limit=limit
+    )
+
+    noise_dataset = datasets.NoiseDataset(
+        birdclef_2021_root=birdclef_root, parallelism=parallelism
+    )
 
     model, device = datasets.load_embedding_model(embedding_checkpoint, dim)
-    X_raw = np.stack(df.data.values)
 
     if use_ref_motif:
         # load the reference motif dataset
@@ -153,14 +140,30 @@ def train(
     # takes up a significant amount of memory. Windows will complain about not
     # being able to fit the memory into a page segment.
     batch_size = 50
+    shuffle = False
+    dataloader = DataLoader(
+        dataset=torch.utils.data.ConcatDataset([motif_dataset, noise_dataset]),
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+
     X = None
-    for chunk in tqdm.tqdm(chunks(X_raw, batch_size), total=len(X_raw) // batch_size):
+    label = []
+
+    for batch in dataloader:
         transformed_chunk = np.hstack(
-            [transform_input(model, device, chunk, batch_size=batch_size)]
+            [
+                transform_input(
+                    model,
+                    device,
+                    batch["data"].cpu().detach().numpy(),
+                    batch_size=batch_size,
+                )
+            ]
             + (
                 datasets.transform_input_motif(
                     ref_motif_df,
-                    chunk,
+                    batch["data"].cpu().detach().numpy(),
                     cens_sr=cens_sr,
                     mp_window=mp_window,
                     parallelism=parallelism,
@@ -174,13 +177,16 @@ def train(
         else:
             # stack the X with the transformed chunk
             X = np.vstack([X, transformed_chunk])
+        label += batch["label"]
+
     print(f"done transforming data: {X.shape}")
 
-    y = (
-        ohe.transform(le.transform(df.label.values).reshape(-1, 1))
-        .toarray()
-        .astype(int)
-    )
+    le = LabelEncoder()
+    le.fit(label)
+    ohe = OneHotEncoder()
+    ohe.fit(le.transform(label).reshape(-1, 1))
+
+    y = ohe.transform(le.transform(label).reshape(-1, 1)).toarray().astype(int)
 
     train_pair, (X_test, y_test) = datasets.split(
         X,
