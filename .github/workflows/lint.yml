@@ -23,4 +23,4 @@ jobs:
       - name: Run pre-commit as linter
         uses: pre-commit/action@v2.0.3
         with:
-          extra_args: --all-files
+          extra_args: --all-files --show-diff-on-failure
