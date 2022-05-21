@@ -4,7 +4,6 @@ from datetime import date
 from pathlib import Path
 
 import click
-import IPython.display as ipd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,8 +15,11 @@ from sklearn.preprocessing import LabelEncoder
 
 from birdclef.models.embedding.tilenet import TileNet
 from birdclef.workflows import motif
+import importlib.resources as pkg_resources
+from birdclef.workflows import templates
+from jinja2 import Environment, PackageLoader, select_autoescape
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).parent.parent.parent
 
 
 @click.group()
@@ -105,7 +107,6 @@ def main(intra, inter, checkpoint, parquet, outputdir, root, dim, name):
         z = data[i]
         plt.plot(z)
         plt.clf()
-        ipd.display(ipd.Audio(z, rate=32000))
 
     emb = model(torch.from_numpy(np.array(data))).detach().numpy()
     le = LabelEncoder().fit(labels)
@@ -115,13 +116,14 @@ def main(intra, inter, checkpoint, parquet, outputdir, root, dim, name):
     store = f"{outputdir}/{name}/{inter}1.png"
     plt.savefig(store, bbox_inches="tight")
     plt.clf()
-    print("Generated Interclass Figures")
-
+    print("Created Interclass Figures")
     # Create html file with Jinja2 template
-    file_loader = FileSystemLoader("../../birdclef/workflows/templates")
-    env = Environment(loader=file_loader)
-
-    template = env.get_template("index.html.j2")
+    # env = Environment(
+    #     loader=PackageLoader(templates),
+    #     # autoescape=select_autoescape()
+    # )
+    # template = env.get_template('index.html.j2');
+    template = pkg_resources.read_text(templates, 'index.html.j2')
     output = template.render(
         intraspecies=intra,
         interspecies=inter,
@@ -129,9 +131,9 @@ def main(intra, inter, checkpoint, parquet, outputdir, root, dim, name):
         interfigures=store,
     )
 
-    with open(f"{outputdir}/{name}/index.html.j2", "w") as fp:
+    with open(f"{outputdir}/{name}/index.html", "w") as fp:
         fp.write(output)
-    webbrowser.open_new(f"{outputdir}/{name}/index.html.j2")
+    webbrowser.open_new(f"{outputdir}/{name}/index.html")
 
 
 if __name__ == "__main__":
