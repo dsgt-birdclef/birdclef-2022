@@ -1,3 +1,4 @@
+import random
 from pathlib import Path
 from typing import List, Optional
 
@@ -25,17 +26,16 @@ class ClassifierDataset(IterableDataset):
 
     def __init__(
         self,
-        training_root: Path,
+        paths: List[Path],
         label_encoder,
         transform=None,
         random_state: int = 2022,
-        limit=-1,
     ):
-        self.paths = list(training_root.glob("**/*.ogg"))
+        self.paths = paths
         self.label_encoder = label_encoder
         self.transform = transform
-        self.limit = limit
 
+        random.seed(random_state)
         np.random.seed(random_state)
         np.random.shuffle(self.paths)
 
@@ -110,12 +110,7 @@ class ClassifierDataset(IterableDataset):
         end = start + rows_per_worker
 
         k = len(self.label_encoder.classes_)
-        count = 0
         for item in self._slices(self.paths[start:end], n_queues=k):
-            # only take data from the first worker if we're going to limit data
-            if self.limit > 0 and (count >= self.limit or worker_id > 0):
-                break
-            count += 1
             if self.transform:
                 item = self.transform(item)
             yield item
@@ -124,43 +119,56 @@ class ClassifierDataset(IterableDataset):
 class ClassifierDataModule(pl.LightningDataModule):
     def __init__(
         self,
-        training_root: Path,
+        train_root: Path,
         label_encoder,
         batch_size=4,
         num_workers=8,
         random_state=None,
-        validation_batches=1,
         *args,
         **kwargs,
     ):
         super().__init__()
-        self.training_root = training_root
+        self.train_root = train_root
         self.label_encoder = label_encoder
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.kwargs = dict(
-            batch_size=batch_size,
+            batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=True,
+            **kwargs,
         )
         self.random_state = random_state or np.random.randint(2**31)
-        self.validation_batches = validation_batches
 
     def setup(self, stage: Optional[str] = None):
+        # NOTE: how important is it to have determinism in the setup?
+        random.seed(self.random_state)
+
+        # for training, we choose to use all of the available training data for
+        # the specific species
         self.dataset = ClassifierDataset(
-            self.training_root,
+            list(self.train_root.glob("**/*.ogg")),
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
-            batch_size=self.batch_size,
         )
+
+        # for the validation dataset, we only use a subset of the files. We
+        # assume the length of a single file in the training dataset is roughly
+        # the same length (although in practice there are clips that are over 10
+        # minutes in length)
+        val_paths = []
+        for species in self.label_encoder.classes_:
+            paths = list(self.train_root.glob(f"{species}/*.ogg"))
+            if not paths:
+                continue
+            val_paths.append(random.choice(paths))
+
         self.val_dataset = ClassifierDataset(
-            self.training_root,
+            val_paths,
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
-            batch_size=self.batch_size,
-            limit=self.validation_batches,
         )
 
     def train_dataloader(self):
