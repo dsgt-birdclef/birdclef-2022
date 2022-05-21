@@ -8,7 +8,6 @@ import pytest
 from birdclef.models.classifier.datasets import (
     MotifDataset,
     augment_samples,
-    motif_dataloader,
     resample_dataset,
 )
 

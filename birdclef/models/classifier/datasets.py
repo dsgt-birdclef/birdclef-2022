@@ -55,10 +55,6 @@ class MotifDataset(Dataset):
         return motif_row
 
 
-"""def motif_dataloader(motif_dataset: MotifDataset, batch_size: int, shuffle=False):
-    return DataLoader(dataset=motif_dataset, shuffle=shuffle, batch_size=batch_size)"""
-
-
 def augment_samples(X, batch_size=50, sr=32000):
     """Pass audio samples through augmentation transformation pipeline."""
     apply_augmentation = Compose(
@@ -196,10 +192,6 @@ class NoiseDataset(Dataset):
             data=self.df.iloc[idx].data,
             label=self.df.iloc[idx].label,
         )
-
-
-"""def noise_dataloader(noise_dataset: NoiseDataset, batch_size: int, shuffle=False):
-    return DataLoader(dataset=noise_dataset, shuffle=shuffle, batch_size=batch_size)"""
 
 
 def load_embedding_model(embedding_checkpoint: Path, z_dim: int):
