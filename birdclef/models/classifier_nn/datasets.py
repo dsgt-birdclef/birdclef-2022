@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import librosa
 import numpy as np
@@ -17,32 +17,47 @@ class ToFloatTensor:
     """
 
     def __call__(self, sample):
-        return torch.from_numpy(sample).float()
+        return tuple([torch.from_numpy(z).float() for z in sample])
 
 
 class ClassifierDataset(IterableDataset):
     """A data loader that generates training examples from the audio files."""
 
     def __init__(
-        self, training_root: Path, transform=None, random_state: int = 2022, limit=-1
+        self,
+        training_root: Path,
+        label_encoder,
+        transform=None,
+        random_state: int = 2022,
+        limit=-1,
     ):
         self.paths = list(training_root.glob("**/*.ogg"))
+        self.label_encoder = label_encoder
         self.transform = transform
         self.limit = limit
 
         np.random.seed(random_state)
         np.random.shuffle(self.paths)
 
-    def _slices(self, start: int, end: int, n_queues=32, sr=32000):
+    def _slices(self, paths: List[Path], n_queues=32, sr=32000):
         """Get all the audio slices for the given audio files.
+
+        This dataloader will also generate random noise in every batch, how
+        frequently it occurs is related to the number of queues that are open at
+        any given time.
 
         n_queues: the number of open audio files to have at a given time
         """
-        path_iter = iter(self.paths)
+        path_iter = iter(paths)
+        k = len(self.label_encoder.classes_)
 
-        # set a default value that is true
-        open_files = [None]
-        while open_files:
+        def noise_generator():
+            # a generator that continuously yields noise
+            while True:
+                yield np.random.randn(sr * 5)
+
+        open_files = [(noise_generator(), "noise")]
+        while True:
             # remove empty elements from the open files
             open_files = [f for f in open_files if f is not None]
 
@@ -61,14 +76,25 @@ class ClassifierDataset(IterableDataset):
                 if not sliced:
                     continue
                 np.random.shuffle(sliced)
-                open_files.append(iter(sliced))
+                open_files.append(
+                    (
+                        (x for _, x in sliced),
+                        path.parent.name,
+                    )
+                )
+
+            # only the noise generator is left
+            if len(open_files) <= 1:
+                return
 
             # then yield values from the open files
             for i in range(len(open_files)):
-                it = open_files[i]
+                it, label = open_files[i]
                 try:
-                    _, slice = next(it)
-                    yield slice
+                    slice = next(it)
+                    # https://stackoverflow.com/a/49790223
+                    target = self.label_encoder.transform([label])
+                    yield slice, np.identity(k)[target].reshape(-1)
                 except StopIteration:
                     open_files[i] = None
 
@@ -83,12 +109,15 @@ class ClassifierDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
+        k = len(self.label_encoder.classes_)
         count = 0
-        for item in self._slices(start, end):
+        for item in self._slices(self.paths[start:end], n_queues=k):
             # only take data from the first worker if we're going to limit data
             if self.limit > 0 and (count >= self.limit or worker_id > 0):
                 break
             count += 1
+            if self.transform:
+                item = self.transform(item)
             yield item
 
 
@@ -96,6 +125,7 @@ class ClassifierDataModule(pl.LightningDataModule):
     def __init__(
         self,
         training_root: Path,
+        label_encoder,
         batch_size=4,
         num_workers=8,
         random_state=None,
@@ -105,6 +135,7 @@ class ClassifierDataModule(pl.LightningDataModule):
     ):
         super().__init__()
         self.training_root = training_root
+        self.label_encoder = label_encoder
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.kwargs = dict(
@@ -118,12 +149,14 @@ class ClassifierDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         self.dataset = ClassifierDataset(
             self.training_root,
+            self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
             batch_size=self.batch_size,
         )
         self.val_dataset = ClassifierDataset(
             self.training_root,
+            self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
             batch_size=self.batch_size,
