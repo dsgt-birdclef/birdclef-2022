@@ -1,9 +1,6 @@
-import json
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
-import pytest
+import soundfile as sf
 
 from birdclef.models.classifier.datasets import (
     MotifDataset,
@@ -32,10 +29,18 @@ def test_resample_dataset_correct_shape(tmp_path):
     assert len(list(output.glob("*/*.ogg"))) == 10
 
 
-def test_motif_dataset_correct_length():
-    motif_root = Path("data/test")
-    scored_birds = json.loads(
-        Path("data/raw/birdclef-2022/scored_birds.json").read_text()
-    )
-    test_motif_dataset = MotifDataset(motif_root=motif_root, scored_birds=scored_birds)
+def test_motif_dataset_correct_length(tmp_path):
+    scored_birds = ["foo", "bar", "baz"]
+    for bird in scored_birds:
+        sr = 32000
+        path = tmp_path / bird
+        path.mkdir()
+        sf.write(
+            path / "0.ogg",
+            np.ones(sr * 5),
+            sr,
+            format="ogg",
+            subtype="vorbis",
+        )
+    test_motif_dataset = MotifDataset(motif_root=tmp_path, scored_birds=scored_birds)
     assert test_motif_dataset.__len__() == 3
