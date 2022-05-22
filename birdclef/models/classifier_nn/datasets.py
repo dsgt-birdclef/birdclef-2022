@@ -100,17 +100,16 @@ class ClassifierDataset(IterableDataset):
         paths: List[Path],
         label_encoder,
         transform=None,
-        random_state: int = 2022,
+        random_state: Optional[int] = None,
         queue_size: int = -1,
+        step_size=5,
     ):
         self.paths = paths
         self.label_encoder = label_encoder
         self.transform = transform
         self.queue_size = queue_size if queue_size > 1 else len(label_encoder.classes_)
-
-        random.seed(random_state)
-        np.random.seed(random_state)
-        np.random.shuffle(self.paths)
+        self.step_size = step_size
+        self.random_state = random_state
 
     def _slices(self, paths: List[Path], queue_size=32, sr=32000):
         """Get all the audio slices for the given audio files.
@@ -145,7 +144,9 @@ class ClassifierDataset(IterableDataset):
                 y, _ = librosa.load(path.as_posix(), sr=sr)
                 # TODO: instead of sliding over full windows, we may want to
                 # slide over in increments of 2.5 seconds
-                sliced = slice_seconds(y, sr, 5, padding_type="right-align")
+                sliced = slice_seconds(
+                    y, sr, 5, step=self.step_size, padding_type="right-align"
+                )
                 if not sliced:
                     continue
                 np.random.shuffle(sliced)
@@ -182,6 +183,10 @@ class ClassifierDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
+        if self.random_state:
+            random.seed(self.random_state)
+            np.random.seed(self.random_state)
+        np.random.shuffle(self.paths)
         for item in self._slices(self.paths[start:end], queue_size=self.queue_size):
             if self.transform:
                 item = self.transform(item)
@@ -239,9 +244,9 @@ class ClassifierDataModule(pl.LightningDataModule):
         z_dim: int = 512,
         batch_size=4,
         num_workers=8,
-        random_state=None,
         stratify_count=-1,
         queue_size=-1,
+        step_size=5,
         *args,
         **kwargs,
     ):
@@ -256,11 +261,11 @@ class ClassifierDataModule(pl.LightningDataModule):
             pin_memory=True,
             **kwargs,
         )
-        self.random_state = random_state or np.random.randint(2**31)
 
         # change how the dataloader extracts data
         self.stratify_count = stratify_count
         self.queue_size = queue_size
+        self.step_size = step_size
 
         # some on-batch transformations
         self.augment_audio = AugmentAudio()
@@ -268,9 +273,6 @@ class ClassifierDataModule(pl.LightningDataModule):
         self.embed_transform = ToEmbedSpace(embed_checkpoint, z_dim=z_dim)
 
     def setup(self, stage: Optional[str] = None):
-        # NOTE: how important is it to have determinism in the setup?
-        random.seed(self.random_state)
-
         # for training, we choose to use all of the available training data for
         # the specific species
         all_paths = [
@@ -296,8 +298,8 @@ class ClassifierDataModule(pl.LightningDataModule):
             train_paths,
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
-            random_state=self.random_state,
             queue_size=self.queue_size,
+            step_size=self.step_size,
         )
 
         # for the validation dataset, we only use a subset of the files. We
@@ -315,8 +317,9 @@ class ClassifierDataModule(pl.LightningDataModule):
             val_paths,
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
-            random_state=self.random_state,
+            random_state=np.random.randint(2**31),
             queue_size=self.queue_size,
+            step_size=self.step_size,
         )
 
     def on_after_batch_transfer(self, batch, idx):

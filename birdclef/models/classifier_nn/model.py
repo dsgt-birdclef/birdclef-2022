@@ -26,7 +26,7 @@ class ClassifierNet(pl.LightningModule):
         x = self.layer1(x)
         x = F.relu(x)
         x = self.layer2(x)
-        x = F.sigmoid(x)
+        x = torch.sigmoid(x)
         return x
 
     def forward(self, x, *args):

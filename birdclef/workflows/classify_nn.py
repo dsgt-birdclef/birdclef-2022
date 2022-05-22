@@ -61,6 +61,12 @@ def classify_nn():
     default=8,
     help="Limit the number of concurrent audio files open.",
 )
+@click.option(
+    "--step-size",
+    type=int,
+    default=2,
+    help="Limit the number of concurrent audio files open.",
+)
 @click.option("--parallelism", type=int, default=8)
 def fit(
     output,
@@ -71,6 +77,7 @@ def fit(
     filter_set,
     stratify_count,
     queue_size,
+    step_size,
     parallelism,
 ):
     ver = version("birdclef")
@@ -91,6 +98,7 @@ def fit(
         dim,
         stratify_count=stratify_count,
         queue_size=queue_size,
+        step_size=step_size,
         batch_size=32,
         num_workers=parallelism,
     )
@@ -127,6 +135,7 @@ def fit(
                 created=datetime.datetime.now().isoformat(),
                 stratify_count=stratify_count,
                 queue_size=queue_size,
+                step_size=step_size,
             ),
             indent=2,
         )
