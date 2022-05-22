@@ -18,8 +18,14 @@ class ToFloatTensor:
     Converts numpy arrays to float Variables in Pytorch.
     """
 
+    def __init__(self, device=None):
+        self.device = device
+
     def __call__(self, sample):
-        return tuple([torch.from_numpy(z).float() for z in sample])
+        z = [torch.from_numpy(z) for z in sample]
+        if self.device is not None:
+            z = [z.to(self.device) for z in z]
+        return tuple(z)
 
 
 class ToEmbedSpace:
