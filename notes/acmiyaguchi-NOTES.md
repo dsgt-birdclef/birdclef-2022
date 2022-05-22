@@ -438,5 +438,14 @@ python -m birdclef.workflows.classify_nn fit
 tensorboard --logdir data/intermediate/classify-nn
 ```
 
+There was numerical instability using sigmoid activation with a binary cross entropy loss, so instead we moved to use the binary cross entropy with logits. The new loss has better numerical stability due to tricks that can be done with a single layer. This also means setting the learning rate manually, because the auto learning rate tuner chooses something that quickly makes the gradient vanish.
+
+- 0.11.0\version_0 - original model
+- 0.12.1\version_6 - undersampling
+
+* https://towardsdatascience.com/sigmoid-activation-and-binary-crossentropy-a-less-than-perfect-match-b801e130e31
+
+* https://pytorch.org/docs/stable/generated/torch.nn.functional.binary_cross_entropy_with_logits.html
+
 [mixup]: https://github.com/fastai/fastai_old/blob/488e4fd2939bbe34c0fd0c3867884a9c45877cb9/fastai/callbacks/mixup.py
 [multi-label]: https://machinelearningmastery.com/multi-label-classification-with-deep-learning/

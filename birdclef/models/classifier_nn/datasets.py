@@ -216,6 +216,7 @@ class ClassifierDataModule(pl.LightningDataModule):
         batch_size=4,
         num_workers=8,
         random_state=None,
+        stratify_count=-1,
         *args,
         **kwargs,
     ):
@@ -232,6 +233,9 @@ class ClassifierDataModule(pl.LightningDataModule):
         )
         self.random_state = random_state or np.random.randint(2**31)
 
+        # change how the dataloader extracts data
+        self.stratify_count = stratify_count
+
         # some on-batch transformations
         self.mixup = Mixup(alpha=0.4)
         self.embed_transform = ToEmbedSpace(embed_checkpoint, z_dim=z_dim)
@@ -242,12 +246,27 @@ class ClassifierDataModule(pl.LightningDataModule):
 
         # for training, we choose to use all of the available training data for
         # the specific species
+        all_paths = [
+            p
+            for p in self.train_root.glob("**/*.ogg")
+            if p.parent.name in self.label_encoder.classes_
+        ]
+
+        # from our notebook, the median track count per species is 15. We'll use
+        # this as the target for sampling
+        train_paths = []
+        for species in self.label_encoder.classes_:
+            paths = [p for p in all_paths if p.parent.name == species]
+            if not paths:
+                continue
+            if self.stratify_count > 0:
+                # under-sample from over-represented classes and over-sample
+                # from under-represented classes.
+                paths = random.choices(paths, k=self.stratify_count)
+            train_paths += paths
+
         self.dataset = ClassifierDataset(
-            [
-                p
-                for p in self.train_root.glob("**/*.ogg")
-                if p.parent.name in self.label_encoder.classes_
-            ],
+            train_paths,
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
@@ -259,10 +278,10 @@ class ClassifierDataModule(pl.LightningDataModule):
         # minutes in length)
         val_paths = []
         for species in self.label_encoder.classes_:
-            paths = list(self.train_root.glob(f"{species}/*.ogg"))
+            paths = [p for p in all_paths if p.parent.name == species]
             if not paths:
                 continue
-            val_paths.append(random.choice(paths))
+            val_paths += random.choices(paths, k=1)
 
         self.val_dataset = ClassifierDataset(
             val_paths,
