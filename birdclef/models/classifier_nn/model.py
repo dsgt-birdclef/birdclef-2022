@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class ClassifierNet(pl.LightningModule):
     def __init__(self, z_dim: int, n_classes: int):
         super(ClassifierNet, self).__init__()
-        self.lr = 1e-3
+        self.lr = 1e-4
 
         # NOTE: why is this example for the raw audio and not of the embedding?
         # it might be because the datamodule installs a callback to transform
@@ -19,6 +19,8 @@ class ClassifierNet(pl.LightningModule):
 
         self.layer1 = nn.Linear(z_dim, 128)
         self.layer2 = nn.Linear(128, n_classes)
+        torch.nn.init.xavier_uniform_(self.layer1.weight)
+        torch.nn.init.xavier_uniform_(self.layer2.weight)
 
     def encode(self, x):
         x = self.layer1(x)

@@ -94,3 +94,10 @@ def test_slice_seconds_right_align_pad():
     i, v = res[1]
     assert i == 5
     assert (v - np.arange(3, 8)).sum() == 0
+
+
+def test_slice_seconds_step_size():
+    x = np.arange(16)
+    res = slice_seconds(x, 1, 4, step=2, padding_type="right")
+    print(res)
+    assert len(res) == 7

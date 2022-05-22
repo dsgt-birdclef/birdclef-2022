@@ -56,7 +56,9 @@ def load_audio(input_path: Path, offset: float, duration: int = 7, sr: int = 320
     return np.resize(np.moveaxis(y_trunc, -1, 0), length)
 
 
-def slice_seconds(data, sample_rate, seconds=5, pad_seconds=0, padding_type="center"):
+def slice_seconds(
+    data, sample_rate, seconds=5, pad_seconds=0, step=None, padding_type="center"
+):
     # return 2d array of the original data
     valid_padding_types = ["center", "right", "right-align"]
     if padding_type not in valid_padding_types:
@@ -65,7 +67,7 @@ def slice_seconds(data, sample_rate, seconds=5, pad_seconds=0, padding_type="cen
     # compute step size
     k = sample_rate * seconds
     pad = sample_rate * pad_seconds
-    step = k + pad
+    step = k + pad if step is None else int(sample_rate * step)
 
     remainder = len(data) % step
     if remainder:
@@ -86,7 +88,7 @@ def slice_seconds(data, sample_rate, seconds=5, pad_seconds=0, padding_type="cen
 
     n = len(data)
     indexes = np.array(
-        [np.arange(i, i + step) for i in range(0, n, k) if i + step <= n]
+        [np.arange(i, i + k + pad) for i in range(0, n, step) if i + k + pad <= n]
     ).astype(int)
     indexed = data[indexes]
     if indexed.shape[0] == 0:

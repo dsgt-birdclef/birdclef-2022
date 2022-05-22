@@ -9,3 +9,4 @@ __pycache__/
 lightning_logs
 sqlite*
 .terraform
+build/

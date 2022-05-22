@@ -7,6 +7,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, IterableDataset
+from torch_audiomentations import AddColoredNoise, Compose, Gain, PitchShift, Shift
 from torchvision import transforms
 
 from birdclef.models.embedding.tilenet import TileNet
@@ -26,6 +27,29 @@ class ToFloatTensor:
         if self.device is not None:
             z = [z.to(self.device) for z in z]
         return tuple(z)
+
+
+class AugmentAudio:
+    """Adds noise to the audio, should be done per batch before mixup."""
+
+    def __init__(self):
+        self.sr = 32000
+        self.augment = Compose(
+            transforms=[
+                Gain(min_gain_in_db=-18, max_gain_in_db=6),
+                PitchShift(
+                    min_transpose_semitones=-4,
+                    max_transpose_semitones=4,
+                    sample_rate=self.sr,
+                ),
+                Shift(min_shift=-0.1, max_shift=0.1),
+                AddColoredNoise(),
+            ]
+        )
+
+    def __call__(self, sample):
+        X, y = sample
+        return self.augment(X.unsqueeze(1), sample_rate=self.sr).squeeze(1), y
 
 
 class ToEmbedSpace:
@@ -76,24 +100,25 @@ class ClassifierDataset(IterableDataset):
         paths: List[Path],
         label_encoder,
         transform=None,
-        random_state: int = 2022,
+        random_state: Optional[int] = None,
+        queue_size: int = -1,
+        step_size=5,
     ):
         self.paths = paths
         self.label_encoder = label_encoder
         self.transform = transform
+        self.queue_size = queue_size if queue_size > 1 else len(label_encoder.classes_)
+        self.step_size = step_size
+        self.random_state = random_state
 
-        random.seed(random_state)
-        np.random.seed(random_state)
-        np.random.shuffle(self.paths)
-
-    def _slices(self, paths: List[Path], n_queues=32, sr=32000):
+    def _slices(self, paths: List[Path], queue_size=32, sr=32000):
         """Get all the audio slices for the given audio files.
 
         This dataloader will also generate random noise in every batch, how
         frequently it occurs is related to the number of queues that are open at
         any given time.
 
-        n_queues: the number of open audio files to have at a given time
+        queue_size: the number of open audio files to have at a given time
         """
         path_iter = iter(paths)
         k = len(self.label_encoder.classes_)
@@ -109,7 +134,7 @@ class ClassifierDataset(IterableDataset):
             open_files = [f for f in open_files if f is not None]
 
             # add new elements to fill up the queue
-            while len(open_files) < n_queues and path_iter is not None:
+            while len(open_files) < queue_size and path_iter is not None:
                 try:
                     path = next(path_iter)
                 except StopIteration:
@@ -119,7 +144,9 @@ class ClassifierDataset(IterableDataset):
                 y, _ = librosa.load(path.as_posix(), sr=sr)
                 # TODO: instead of sliding over full windows, we may want to
                 # slide over in increments of 2.5 seconds
-                sliced = slice_seconds(y, sr, 5, padding_type="right-align")
+                sliced = slice_seconds(
+                    y, sr, 5, step=self.step_size, padding_type="right-align"
+                )
                 if not sliced:
                     continue
                 np.random.shuffle(sliced)
@@ -156,8 +183,11 @@ class ClassifierDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
-        k = len(self.label_encoder.classes_)
-        for item in self._slices(self.paths[start:end], n_queues=k):
+        if self.random_state:
+            random.seed(self.random_state)
+            np.random.seed(self.random_state)
+        np.random.shuffle(self.paths)
+        for item in self._slices(self.paths[start:end], queue_size=self.queue_size):
             if self.transform:
                 item = self.transform(item)
             yield item
@@ -199,7 +229,6 @@ class ClassifierSimpleDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
-        k = len(self.label_encoder.classes_)
         for item in self._slices(self.paths[start:end]):
             if self.transform:
                 item = self.transform(item)
@@ -215,7 +244,9 @@ class ClassifierDataModule(pl.LightningDataModule):
         z_dim: int = 512,
         batch_size=4,
         num_workers=8,
-        random_state=None,
+        stratify_count=-1,
+        queue_size=-1,
+        step_size=5,
         *args,
         **kwargs,
     ):
@@ -230,27 +261,45 @@ class ClassifierDataModule(pl.LightningDataModule):
             pin_memory=True,
             **kwargs,
         )
-        self.random_state = random_state or np.random.randint(2**31)
+
+        # change how the dataloader extracts data
+        self.stratify_count = stratify_count
+        self.queue_size = queue_size
+        self.step_size = step_size
 
         # some on-batch transformations
+        self.augment_audio = AugmentAudio()
         self.mixup = Mixup(alpha=0.4)
         self.embed_transform = ToEmbedSpace(embed_checkpoint, z_dim=z_dim)
 
     def setup(self, stage: Optional[str] = None):
-        # NOTE: how important is it to have determinism in the setup?
-        random.seed(self.random_state)
-
         # for training, we choose to use all of the available training data for
         # the specific species
+        all_paths = [
+            p
+            for p in self.train_root.glob("**/*.ogg")
+            if p.parent.name in self.label_encoder.classes_
+        ]
+
+        # from our notebook, the median track count per species is 15. We'll use
+        # this as the target for sampling
+        train_paths = []
+        for species in self.label_encoder.classes_:
+            paths = [p for p in all_paths if p.parent.name == species]
+            if not paths:
+                continue
+            if self.stratify_count > 0:
+                # under-sample from over-represented classes and over-sample
+                # from under-represented classes.
+                paths = random.choices(paths, k=self.stratify_count)
+            train_paths += paths
+
         self.dataset = ClassifierDataset(
-            [
-                p
-                for p in self.train_root.glob("**/*.ogg")
-                if p.parent.name in self.label_encoder.classes_
-            ],
+            train_paths,
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
-            random_state=self.random_state,
+            queue_size=self.queue_size,
+            step_size=self.step_size,
         )
 
         # for the validation dataset, we only use a subset of the files. We
@@ -259,20 +308,23 @@ class ClassifierDataModule(pl.LightningDataModule):
         # minutes in length)
         val_paths = []
         for species in self.label_encoder.classes_:
-            paths = list(self.train_root.glob(f"{species}/*.ogg"))
+            paths = [p for p in all_paths if p.parent.name == species]
             if not paths:
                 continue
-            val_paths.append(random.choice(paths))
+            val_paths += random.choices(paths, k=1)
 
         self.val_dataset = ClassifierDataset(
             val_paths,
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
-            random_state=self.random_state,
+            random_state=np.random.randint(2**31),
+            queue_size=self.queue_size,
+            step_size=self.step_size,
         )
 
     def on_after_batch_transfer(self, batch, idx):
         if self.trainer.training:
+            batch = self.augment_audio(batch)
             batch = self.mixup(batch)
         return self.embed_transform(batch)
 

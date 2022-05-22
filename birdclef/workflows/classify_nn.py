@@ -49,6 +49,24 @@ def classify_nn():
     type=click.Path(exists=True, dir_okay=False),
     default=Path("data/raw/birdclef-2022/scored_birds.json"),
 )
+@click.option(
+    "--stratify-count",
+    type=int,
+    default=15,
+    help="Stratify the number of tracks used during training for each species.",
+)
+@click.option(
+    "--queue-size",
+    type=int,
+    default=8,
+    help="Limit the number of concurrent audio files open.",
+)
+@click.option(
+    "--step-size",
+    type=int,
+    default=2,
+    help="Limit the number of concurrent audio files open.",
+)
 @click.option("--parallelism", type=int, default=8)
 def fit(
     output,
@@ -57,11 +75,14 @@ def fit(
     embedding_checkpoint,
     dim,
     filter_set,
+    stratify_count,
+    queue_size,
+    step_size,
     parallelism,
 ):
     ver = version("birdclef")
     if output is None:
-        ds = datetime.datetime.utcnow().strftime("%Y%m%d%H%m")
+        ds = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
         output = Path(f"data/processed/classify-nn/{ver}-{ds}")
     output = Path(output)
     root_dir = Path(root_dir)
@@ -75,13 +96,15 @@ def fit(
         label_encoder,
         Path(embedding_checkpoint),
         dim,
+        stratify_count=stratify_count,
+        queue_size=queue_size,
+        step_size=step_size,
         batch_size=32,
         num_workers=parallelism,
     )
     model = ClassifierNet(dim, len(label_encoder.classes_))
     trainer = pl.Trainer(
         gpus=-1,
-        auto_lr_find=True,
         default_root_dir=root_dir,
         logger=TensorBoardLogger(root_dir, name=ver, log_graph=True),
         detect_anomaly=True,
@@ -97,11 +120,10 @@ def fit(
             InputMonitor(),
         ],
     )
-    trainer.tune(model, dm)
-    print(f"batch size: {dm.batch_size}, lr: {model.lr}")
     summary(model, torch.randn(1, dim).cpu())
     trainer.fit(model, dm)
 
+    print(f"saving to {output}")
     output.mkdir(parents=True, exist_ok=True)
     trainer.save_checkpoint(output / "classify.ckpt")
     shutil.copy(embedding_checkpoint, output / "embedding.ckpt")
@@ -111,6 +133,9 @@ def fit(
                 embedding_source=Path(embedding_checkpoint).as_posix(),
                 embedding_dim=dim,
                 created=datetime.datetime.now().isoformat(),
+                stratify_count=stratify_count,
+                queue_size=queue_size,
+                step_size=step_size,
             ),
             indent=2,
         )
