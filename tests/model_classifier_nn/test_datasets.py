@@ -2,15 +2,32 @@ import numpy as np
 import pytest
 import torch
 
-from birdclef.models.classifier_nn import datasets
+from birdclef.models.classifier_nn.datasets import (
+    ClassifierDataModule,
+    ClassifierDataset,
+    Mixup,
+)
+
+
+def test_mixup():
+    k = 10
+    dim = (k, 5)
+    X = torch.ones(dim) * torch.arange(dim[0])[:, None]
+    y = torch.ones((k, 1)) * torch.arange(dim[0])[:, None]
+    print(X)
+    print(y)
+    sample = (X, y)
+    X_mixed, y_mixed = Mixup()(sample)
+    print(X_mixed)
+    print(y_mixed)
+    assert X.shape == X_mixed.shape
+    assert y.shape == y_mixed.shape
 
 
 def test_classifier_dataset_interleaves_audio(train_root, label_encoder):
     # we have to make sure our label encoder includes "noise" as a label
     k = len(label_encoder.classes_)
-    dataset = datasets.ClassifierDataset(
-        list(train_root.glob("**/*.ogg")), label_encoder
-    )
+    dataset = ClassifierDataset(list(train_root.glob("**/*.ogg")), label_encoder)
     count = 0
     sum_labels = np.zeros(k).reshape(-1)
     for item, label in dataset:
@@ -30,12 +47,18 @@ def test_classifier_dataset_interleaves_audio(train_root, label_encoder):
     )
 
 
-def test_classifier_datamodule(train_root, label_encoder):
+def test_classifier_datamodule(train_root, label_encoder, model_checkpoint, z_dim):
     batch_size = 4
     # for this test, we drop the any remaining elements in the dataset, which in
     # the above example ends up being 2 extra elements outside of the batch size
-    dm = datasets.ClassifierDataModule(
-        train_root, label_encoder, batch_size=batch_size, num_workers=1, drop_last=True
+    dm = ClassifierDataModule(
+        train_root,
+        label_encoder,
+        model_checkpoint,
+        z_dim,
+        batch_size=batch_size,
+        num_workers=1,
+        drop_last=True,
     )
     dm.setup()
     batch_count = 0
@@ -57,9 +80,17 @@ def test_classifier_datamodule(train_root, label_encoder):
 
 
 @pytest.mark.parametrize("num_workers", [1, 4, 8])
-def test_classifier_datamodule_multiple_workers(train_root, label_encoder, num_workers):
-    dm = datasets.ClassifierDataModule(
-        train_root, label_encoder, batch_size=1, num_workers=num_workers, drop_last=True
+def test_classifier_datamodule_multiple_workers(
+    train_root, label_encoder, model_checkpoint, z_dim, num_workers
+):
+    dm = ClassifierDataModule(
+        train_root,
+        label_encoder,
+        model_checkpoint,
+        z_dim,
+        batch_size=1,
+        num_workers=num_workers,
+        drop_last=True,
     )
     dm.setup()
     batch_count = 0

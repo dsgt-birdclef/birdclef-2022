@@ -5,13 +5,17 @@ import torch.nn.functional as F
 
 
 class ClassifierNet(pl.LightningModule):
-    def __init__(self, z_dim, n_classes):
+    def __init__(self, z_dim: int, n_classes: int):
         super(ClassifierNet, self).__init__()
         self.lr = 1e-3
-        # required for CheckBatchGradient, we know we're reading 5 seconds at a
-        # time
-        self.seconds = 5
-        self.example_input_array = torch.rand(7, z_dim)
+
+        # NOTE: why is this example for the raw audio and not of the embedding?
+        # it might be because the datamodule installs a callback to transform
+        # data after moving the data over to the device
+        self.example_input_array = (
+            torch.rand(7, 5 * 32000).float(),
+            torch.rand(7, n_classes).float(),
+        )
 
         self.layer1 = nn.Linear(z_dim, 128)
         self.layer2 = nn.Linear(128, n_classes)
@@ -20,9 +24,10 @@ class ClassifierNet(pl.LightningModule):
         x = self.layer1(x)
         x = F.relu(x)
         x = self.layer2(x)
+        x = torch.sigmoid(x)
         return x
 
-    def forward(self, x):
+    def forward(self, x, *args):
         return self.encode(x)
 
     def configure_optimizers(self):
@@ -33,7 +38,7 @@ class ClassifierNet(pl.LightningModule):
     def _step_losses(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
+        loss = F.binary_cross_entropy(y_hat, y)
         return loss
 
     def training_step(self, batch, batch_idx):

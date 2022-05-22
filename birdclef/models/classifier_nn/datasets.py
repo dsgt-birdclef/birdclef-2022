@@ -1,6 +1,6 @@
 import random
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import librosa
 import numpy as np
@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import DataLoader, IterableDataset
 from torchvision import transforms
 
+from birdclef.models.embedding.tilenet import TileNet
 from birdclef.utils import slice_seconds
 
 
@@ -19,6 +20,42 @@ class ToFloatTensor:
 
     def __call__(self, sample):
         return tuple([torch.from_numpy(z).float() for z in sample])
+
+
+class ToEmbedSpace:
+    """Converts the samples into embedding space.
+
+    We assume that the batch is on the same device as the model to be trained.
+    """
+
+    def __init__(self, checkpoint: Path, z_dim=512):
+        self.model = TileNet.load_from_checkpoint(checkpoint, z_dim=z_dim)
+
+    def __call__(self, sample):
+        X, y = sample
+        device = X.device
+        return self.model.to(device)(X), y
+
+
+class Mixup:
+    """Applies mixup to a batch of data
+
+    https://github.com/fastai/fastai_old/blob/488e4fd2939bbe34c0fd0c3867884a9c45877cb9/fastai/callbacks/mixup.py
+    """
+
+    def __init__(self, alpha: float = 0.4):
+        self.alpha = alpha
+
+    def __call__(self, sample: Tuple[torch.Tensor, torch.Tensor]):
+        X, y = sample
+        lam = np.random.beta(self.alpha, self.alpha, X.size(0))[:, None]
+        # lets also generate a random permutation of the possible indices
+        perm = torch.randperm(X.size(0))
+        X_a = X[perm]
+        y_a = y[perm]
+        X = X * lam + X_a * (1 - lam)
+        y = y * lam + y_a * (1 - lam)
+        return X.float(), y.float()
 
 
 class ClassifierDataset(IterableDataset):
@@ -121,6 +158,8 @@ class ClassifierDataModule(pl.LightningDataModule):
         self,
         train_root: Path,
         label_encoder,
+        embed_checkpoint: Path,
+        z_dim: int = 512,
         batch_size=4,
         num_workers=8,
         random_state=None,
@@ -139,6 +178,10 @@ class ClassifierDataModule(pl.LightningDataModule):
             **kwargs,
         )
         self.random_state = random_state or np.random.randint(2**31)
+
+        # some on-batch transformations
+        self.mixup = Mixup(alpha=0.4)
+        self.embed_transform = ToEmbedSpace(embed_checkpoint, z_dim=z_dim)
 
     def setup(self, stage: Optional[str] = None):
         # NOTE: how important is it to have determinism in the setup?
@@ -170,6 +213,11 @@ class ClassifierDataModule(pl.LightningDataModule):
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
         )
+
+    def on_after_batch_transfer(self, batch, idx):
+        if self.trainer.training:
+            batch = self.mixup(batch)
+        return self.embed_transform(batch)
 
     def train_dataloader(self):
         return DataLoader(self.dataset, **self.kwargs)
