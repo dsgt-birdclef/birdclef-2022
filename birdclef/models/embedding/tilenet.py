@@ -55,6 +55,7 @@ class TileNet(pl.LightningModule):
         fmin=0,
         fmax=16000,
         sample_rate=32000,
+        verbose=False,
     ):
         super(TileNet, self).__init__()
         self.lr = 1e-3
@@ -71,7 +72,6 @@ class TileNet(pl.LightningModule):
         total_samples = self.seconds * sample_rate
         hop_length = (total_samples - n_fft) // (n_mels - 1)
         assert hop_length < n_fft, f"hop length too wide, {hop_length} vs {n_fft}"
-        print(f"stft hop length {hop_length}")
         self.spec_layer = MelSpectrogram(
             n_fft=n_fft,
             n_mels=n_mels,
@@ -82,7 +82,9 @@ class TileNet(pl.LightningModule):
             trainable_mel=True,
             trainable_STFT=True,
         )
-        print(self.spec_layer)
+        if verbose:
+            print(f"stft hop length {hop_length}")
+            print(self.spec_layer)
 
         self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
