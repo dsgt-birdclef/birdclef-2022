@@ -433,5 +433,10 @@ python -m birdclef.workflows.classify predict `
 First, lets try out a new dataloader that takes from the existing dataloader and
 add [mixup] to a very simple fully connected model. We'll build a [multi-label classifier][multi-label]
 
+```powershell
+python -m birdclef.workflows.classify_nn fit
+tensorboard --logdir data/intermediate/classify-nn
+```
+
 [mixup]: https://github.com/fastai/fastai_old/blob/488e4fd2939bbe34c0fd0c3867884a9c45877cb9/fastai/callbacks/mixup.py
 [multi-label]: https://machinelearningmastery.com/multi-label-classification-with-deep-learning/

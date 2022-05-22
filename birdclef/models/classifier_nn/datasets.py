@@ -48,7 +48,11 @@ class Mixup:
 
     def __call__(self, sample: Tuple[torch.Tensor, torch.Tensor]):
         X, y = sample
-        lam = np.random.beta(self.alpha, self.alpha, X.size(0))[:, None]
+        lam = (
+            torch.from_numpy(np.random.beta(self.alpha, self.alpha, X.size(0)))
+            .float()
+            .to(X.device)[:, None]
+        )
         # lets also generate a random permutation of the possible indices
         perm = torch.randperm(X.size(0))
         X_a = X[perm]
@@ -190,7 +194,11 @@ class ClassifierDataModule(pl.LightningDataModule):
         # for training, we choose to use all of the available training data for
         # the specific species
         self.dataset = ClassifierDataset(
-            list(self.train_root.glob("**/*.ogg")),
+            [
+                p
+                for p in self.train_root.glob("**/*.ogg")
+                if p.parent.name in self.label_encoder.classes_
+            ],
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
