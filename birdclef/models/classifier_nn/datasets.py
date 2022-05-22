@@ -7,6 +7,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, IterableDataset
+from torch_audiomentations import AddColoredNoise, Compose, Gain, PitchShift, Shift
 from torchvision import transforms
 
 from birdclef.models.embedding.tilenet import TileNet
@@ -26,6 +27,29 @@ class ToFloatTensor:
         if self.device is not None:
             z = [z.to(self.device) for z in z]
         return tuple(z)
+
+
+class AugmentAudio:
+    """Adds noise to the audio, should be done per batch before mixup."""
+
+    def __init__(self):
+        self.sr = 32000
+        self.augment = Compose(
+            transforms=[
+                Gain(min_gain_in_db=-18, max_gain_in_db=6),
+                PitchShift(
+                    min_transpose_semitones=-4,
+                    max_transpose_semitones=4,
+                    sample_rate=self.sr,
+                ),
+                Shift(min_shift=-0.1, max_shift=0.1),
+                AddColoredNoise(),
+            ]
+        )
+
+    def __call__(self, sample):
+        X, y = sample
+        return self.augment(X.unsqueeze(1), sample_rate=self.sr).squeeze(1), y
 
 
 class ToEmbedSpace:
@@ -239,6 +263,7 @@ class ClassifierDataModule(pl.LightningDataModule):
         self.queue_size = queue_size
 
         # some on-batch transformations
+        self.augment_audio = AugmentAudio()
         self.mixup = Mixup(alpha=0.4)
         self.embed_transform = ToEmbedSpace(embed_checkpoint, z_dim=z_dim)
 
@@ -296,6 +321,7 @@ class ClassifierDataModule(pl.LightningDataModule):
 
     def on_after_batch_transfer(self, batch, idx):
         if self.trainer.training:
+            batch = self.augment_audio(batch)
             batch = self.mixup(batch)
         return self.embed_transform(batch)
 

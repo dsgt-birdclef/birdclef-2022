@@ -445,6 +445,8 @@ There was numerical instability using sigmoid activation with a binary cross ent
 - 0.12.1\version_8 - undersampling
 - 0.12.1\version_11 - reduce queue_size for better mixing
   - data\processed\classify-nn\0.12.1-202205222041
+- 0.12.1\version_0 - add augmentation (makes it slower, 7 minutes to 18 minutes)
+  - data\processed\classify-nn\0.12.3-202205222102
 
 * https://towardsdatascience.com/sigmoid-activation-and-binary-crossentropy-a-less-than-perfect-match-b801e130e31
 
