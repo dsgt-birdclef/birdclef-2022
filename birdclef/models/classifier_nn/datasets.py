@@ -77,23 +77,25 @@ class ClassifierDataset(IterableDataset):
         label_encoder,
         transform=None,
         random_state: int = 2022,
+        queue_size: int = -1,
     ):
         self.paths = paths
         self.label_encoder = label_encoder
         self.transform = transform
+        self.queue_size = queue_size if queue_size > 1 else len(label_encoder.classes_)
 
         random.seed(random_state)
         np.random.seed(random_state)
         np.random.shuffle(self.paths)
 
-    def _slices(self, paths: List[Path], n_queues=32, sr=32000):
+    def _slices(self, paths: List[Path], queue_size=32, sr=32000):
         """Get all the audio slices for the given audio files.
 
         This dataloader will also generate random noise in every batch, how
         frequently it occurs is related to the number of queues that are open at
         any given time.
 
-        n_queues: the number of open audio files to have at a given time
+        queue_size: the number of open audio files to have at a given time
         """
         path_iter = iter(paths)
         k = len(self.label_encoder.classes_)
@@ -109,7 +111,7 @@ class ClassifierDataset(IterableDataset):
             open_files = [f for f in open_files if f is not None]
 
             # add new elements to fill up the queue
-            while len(open_files) < n_queues and path_iter is not None:
+            while len(open_files) < queue_size and path_iter is not None:
                 try:
                     path = next(path_iter)
                 except StopIteration:
@@ -156,8 +158,7 @@ class ClassifierDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
-        k = len(self.label_encoder.classes_)
-        for item in self._slices(self.paths[start:end], n_queues=k):
+        for item in self._slices(self.paths[start:end], queue_size=self.queue_size):
             if self.transform:
                 item = self.transform(item)
             yield item
@@ -199,7 +200,6 @@ class ClassifierSimpleDataset(IterableDataset):
         start = worker_id * rows_per_worker
         end = start + rows_per_worker
 
-        k = len(self.label_encoder.classes_)
         for item in self._slices(self.paths[start:end]):
             if self.transform:
                 item = self.transform(item)
@@ -217,6 +217,7 @@ class ClassifierDataModule(pl.LightningDataModule):
         num_workers=8,
         random_state=None,
         stratify_count=-1,
+        queue_size=-1,
         *args,
         **kwargs,
     ):
@@ -235,6 +236,7 @@ class ClassifierDataModule(pl.LightningDataModule):
 
         # change how the dataloader extracts data
         self.stratify_count = stratify_count
+        self.queue_size = queue_size
 
         # some on-batch transformations
         self.mixup = Mixup(alpha=0.4)
@@ -270,6 +272,7 @@ class ClassifierDataModule(pl.LightningDataModule):
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
+            queue_size=self.queue_size,
         )
 
         # for the validation dataset, we only use a subset of the files. We
@@ -288,6 +291,7 @@ class ClassifierDataModule(pl.LightningDataModule):
             self.label_encoder,
             transform=transforms.Compose([ToFloatTensor()]),
             random_state=self.random_state,
+            queue_size=self.queue_size,
         )
 
     def on_after_batch_transfer(self, batch, idx):

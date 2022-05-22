@@ -26,6 +26,7 @@ class ClassifierNet(pl.LightningModule):
         x = self.layer1(x)
         x = F.relu(x)
         x = self.layer2(x)
+        x = F.sigmoid(x)
         return x
 
     def forward(self, x, *args):
@@ -39,7 +40,7 @@ class ClassifierNet(pl.LightningModule):
     def _step_losses(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = F.binary_cross_entropy_with_logits(y_hat, y)
+        loss = F.binary_cross_entropy(y_hat, y)
         return loss
 
     def training_step(self, batch, batch_idx):

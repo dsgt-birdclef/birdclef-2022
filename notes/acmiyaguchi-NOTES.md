@@ -441,7 +441,10 @@ tensorboard --logdir data/intermediate/classify-nn
 There was numerical instability using sigmoid activation with a binary cross entropy loss, so instead we moved to use the binary cross entropy with logits. The new loss has better numerical stability due to tricks that can be done with a single layer. This also means setting the learning rate manually, because the auto learning rate tuner chooses something that quickly makes the gradient vanish.
 
 - 0.11.0\version_0 - original model
-- 0.12.1\version_6 - undersampling
+  - 0.11.0-202205220305
+- 0.12.1\version_8 - undersampling
+- 0.12.1\version_11 - reduce queue_size for better mixing
+  - data\processed\classify-nn\0.12.1-202205222041
 
 * https://towardsdatascience.com/sigmoid-activation-and-binary-crossentropy-a-less-than-perfect-match-b801e130e31
 
