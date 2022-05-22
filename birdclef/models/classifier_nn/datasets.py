@@ -157,6 +157,49 @@ class ClassifierDataset(IterableDataset):
             yield item
 
 
+class ClassifierSimpleDataset(IterableDataset):
+    """A data loader that reads training examples in a linear fashion."""
+
+    def __init__(
+        self,
+        paths: List[Path],
+        label_encoder,
+        transform=None,
+    ):
+        self.paths = paths
+        self.label_encoder = label_encoder
+        self.transform = transform
+
+    def _slices(self, paths: List[Path], sr=32000):
+        """Get all the audio slices for the given audio files."""
+        k = len(self.label_encoder.classes_)
+        for path in paths:
+            # TODO: instead of sliding over full windows, we may want to
+            # slide over in increments of 2.5 seconds
+            y, _ = librosa.load(path.as_posix(), sr=sr)
+            sliced = slice_seconds(y, sr, 5, padding_type="right-align")
+            target = self.label_encoder.transform([path.parent.name])
+            for _, slice in sliced:
+                yield slice, np.identity(k)[target].reshape(-1)
+
+    def __iter__(self):
+        # https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset
+        worker_info = torch.utils.data.get_worker_info()
+        num_workers = 1 if worker_info is None else worker_info.num_workers
+        worker_id = 0 if worker_info is None else worker_info.id
+
+        # compute number of rows per worker
+        rows_per_worker = int(np.ceil(len(self.paths) / num_workers))
+        start = worker_id * rows_per_worker
+        end = start + rows_per_worker
+
+        k = len(self.label_encoder.classes_)
+        for item in self._slices(self.paths[start:end]):
+            if self.transform:
+                item = self.transform(item)
+            yield item
+
+
 class ClassifierDataModule(pl.LightningDataModule):
     def __init__(
         self,
