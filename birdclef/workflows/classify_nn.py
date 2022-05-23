@@ -202,24 +202,19 @@ def predict(output, birdclef_root, classifier_source, method):
                     if label == "noise":
                         break
                     labels.append(label)
-            for label in labels:
+            for bird in filter_set:
                 res_inner.append(
                     {
-                        "file_id": row.file_id,
-                        "bird": label,
-                        "end_time": row.end_time,
-                        "target": True,
+                        "row_id": f"{row.file_id}_{bird}_{row.end_time}",
+                        "target": bird in labels,
                     }
                 )
         res.append(pd.DataFrame(res_inner))
-    res_df = pd.concat(res)
-    submission_df = test_df.merge(
-        res_df[res_df.bird != "noise"], on=["file_id", "bird", "end_time"], how="left"
-    ).fillna(False)
+    submission_df = pd.concat(res)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    print(submission_df.head())
-    submission_df[["row_id", "target"]].to_csv(output, index=False)
+    print(submission_df)
+    submission_df.to_csv(output, index=False)
 
 
 if __name__ == "__main__":
