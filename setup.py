@@ -25,6 +25,7 @@ setuptools.setup(
         "audiomentations",
         "lightgbm",
         "simple-fast-python",
+        'importlib-metadata>=0.12;python_version<"3.8"',
     ],
     entry_points="""
         [console_scripts]
