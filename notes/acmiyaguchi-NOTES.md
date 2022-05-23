@@ -449,10 +449,21 @@ There was numerical instability using sigmoid activation with a binary cross ent
   - data\processed\classify-nn\0.12.3-202205222102
 - 0.12.4\version_0 - add more randomization per epoch and change slice step size to 2
   - data\processed\classify-nn\0.12.4-202205222205
+- 0.13.0\version_0 - increase the size of the neural net
+  - data\processed\classify-nn\0.13.0-202205222347
 
-* https://towardsdatascience.com/sigmoid-activation-and-binary-crossentropy-a-less-than-perfect-match-b801e130e31
+To do the actual prediction:
 
-* https://pytorch.org/docs/stable/generated/torch.nn.functional.binary_cross_entropy_with_logits.html
+```powershell
+python -m birdclef.workflows.classify_nn predict `
+    --birdclef-root data/raw/birdclef-2022 `
+    --classifier-source data/processed/classify-nn/0.13.0-202205222347 `
+    --method top `
+    data/processed/submission/2022-05-22-v0.13.0-0.csv
+```
+
+- https://towardsdatascience.com/sigmoid-activation-and-binary-crossentropy-a-less-than-perfect-match-b801e130e31
+- https://pytorch.org/docs/stable/generated/torch.nn.functional.binary_cross_entropy_with_logits.html
 
 [mixup]: https://github.com/fastai/fastai_old/blob/488e4fd2939bbe34c0fd0c3867884a9c45877cb9/fastai/callbacks/mixup.py
 [multi-label]: https://machinelearningmastery.com/multi-label-classification-with-deep-learning/

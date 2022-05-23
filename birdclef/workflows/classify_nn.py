@@ -5,6 +5,8 @@ from importlib.metadata import version
 from pathlib import Path
 
 import click
+import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -13,8 +15,9 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from sklearn.preprocessing import LabelEncoder
 from torchsummary import summary
 
+from birdclef.datasets import soundscape
 from birdclef.models.classifier_nn.callbacks import InputMonitor
-from birdclef.models.classifier_nn.datasets import ClassifierDataModule
+from birdclef.models.classifier_nn.datasets import ClassifierDataModule, ToEmbedSpace
 from birdclef.models.classifier_nn.model import ClassifierNet
 
 
@@ -140,6 +143,74 @@ def fit(
             indent=2,
         )
     )
+
+
+@classify_nn.command()
+@click.argument("output")
+@click.option(
+    "--birdclef-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=Path("data/raw/birdclef-2022"),
+)
+@click.option(
+    "--classifier-source", required=True, type=click.Path(exists=True, file_okay=False)
+)
+@click.option("--method", type=click.Choice(["top"]), default="top")
+def predict(output, birdclef_root, classifier_source, method):
+    birdclef_root = Path(birdclef_root)
+    classifier_source = Path(classifier_source)
+
+    filter_set = json.loads((birdclef_root / "scored_birds.json").read_text())
+    label_encoder = LabelEncoder()
+    label_encoder.fit(["noise"] + filter_set)
+
+    metadata = json.loads((classifier_source / "metadata.json").read_text())
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    to_embed = ToEmbedSpace(
+        classifier_source / "embedding.ckpt", z_dim=metadata["embedding_dim"]
+    )
+    model = ClassifierNet.load_from_checkpoint(
+        classifier_source / "classify.ckpt",
+        z_dim=metadata["embedding_dim"],
+        n_classes=len(label_encoder.classes_),
+    )
+
+    test_df = pd.read_csv(Path(birdclef_root) / "test.csv")
+    print(test_df.head())
+
+    res = []
+    for df in soundscape.load_test_soundscapes(
+        Path(birdclef_root) / "test_soundscapes"
+    ):
+        X_raw = torch.from_numpy(np.stack(df.x.values)).float().to(device)
+        X, _ = to_embed((X_raw, None))
+        y_pred = model.to(device)(X).cpu().detach().numpy()
+        # now convert the prediction to something that we can use
+        res_inner = []
+        for row, pred in zip(df.itertuples(), y_pred):
+            labels = []
+            if method == "top":
+                sorted_labels = np.argsort(pred)[::-1]
+                labels = label_encoder.inverse_transform(sorted_labels[:1])
+            for label in labels:
+                res_inner.append(
+                    {
+                        "file_id": row.file_id,
+                        "bird": label,
+                        "end_time": row.end_time,
+                        "target": True,
+                    }
+                )
+        res.append(pd.DataFrame(res_inner))
+    res_df = pd.concat(res)
+    submission_df = test_df.merge(
+        res_df[res_df.bird != "other"], on=["file_id", "bird", "end_time"], how="left"
+    ).fillna(False)
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    print(submission_df.head())
+    submission_df[["row_id", "target"]].to_csv(output, index=False)
 
 
 if __name__ == "__main__":
