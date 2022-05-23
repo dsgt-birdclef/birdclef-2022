@@ -155,7 +155,7 @@ def fit(
 @click.option(
     "--classifier-source", required=True, type=click.Path(exists=True, file_okay=False)
 )
-@click.option("--method", type=click.Choice(["top"]), default="top")
+@click.option("--method", type=click.Choice(["top", "top-not-noise"]), default="top")
 def predict(output, birdclef_root, classifier_source, method):
     birdclef_root = Path(birdclef_root)
     classifier_source = Path(classifier_source)
@@ -190,9 +190,14 @@ def predict(output, birdclef_root, classifier_source, method):
         res_inner = []
         for row, pred in zip(df.itertuples(), y_pred):
             labels = []
+            sorted_indices = np.argsort(pred)[::-1]
             if method == "top":
-                sorted_labels = np.argsort(pred)[::-1]
-                labels = label_encoder.inverse_transform(sorted_labels[:1])
+                labels = label_encoder.inverse_transform(sorted_indices[:1])
+            elif method == "top-not-noise":
+                for label in label_encoder.inverse_transform(sorted_indices[1:]):
+                    if label == "noise":
+                        break
+                    labels.append(label)
             for label in labels:
                 res_inner.append(
                     {
