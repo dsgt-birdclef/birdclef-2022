@@ -198,7 +198,7 @@ def predict(output, birdclef_root, classifier_source, method):
             if method == "top":
                 labels = label_encoder.inverse_transform(sorted_indices[:1])
             elif method == "top-not-noise":
-                for label in label_encoder.inverse_transform(sorted_indices[1:]):
+                for label in label_encoder.inverse_transform(sorted_indices):
                     if label == "noise":
                         break
                     labels.append(label)
@@ -214,7 +214,7 @@ def predict(output, birdclef_root, classifier_source, method):
         res.append(pd.DataFrame(res_inner))
     res_df = pd.concat(res)
     submission_df = test_df.merge(
-        res_df[res_df.bird != "other"], on=["file_id", "bird", "end_time"], how="left"
+        res_df[res_df.bird != "noise"], on=["file_id", "bird", "end_time"], how="left"
     ).fillna(False)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
