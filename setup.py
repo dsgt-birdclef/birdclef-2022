@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="birdclef",
-    version="0.12.4",
+    version="0.13.0",
     description="Utilities for birdclef",
     author="Anthony Miyaguchi",
     author_email="acmiyaguchi@gmail.com",
@@ -25,6 +25,7 @@ setuptools.setup(
         "audiomentations",
         "lightgbm",
         "simple-fast-python",
+        'importlib-metadata>=0.12;python_version<"3.8"',
     ],
     entry_points="""
         [console_scripts]

@@ -17,16 +17,19 @@ class ClassifierNet(pl.LightningModule):
             torch.rand(7, n_classes).float(),
         )
 
-        self.layer1 = nn.Linear(z_dim, 128)
-        self.layer2 = nn.Linear(128, n_classes)
+        self.layer1 = nn.Linear(z_dim, 1024)
+        self.layer2 = nn.Linear(1024, 1024)
+        self.layer3 = nn.Linear(1024, n_classes)
         torch.nn.init.xavier_uniform_(self.layer1.weight)
         torch.nn.init.xavier_uniform_(self.layer2.weight)
+        torch.nn.init.xavier_uniform_(self.layer3.weight)
 
     def encode(self, x):
-        x = self.layer1(x)
-        x = F.relu(x)
-        x = self.layer2(x)
-        x = torch.sigmoid(x)
+        x = F.relu(self.layer1(x))
+        x = F.dropout(x)
+        x = F.relu(self.layer2(x))
+        x = F.dropout(x)
+        x = torch.sigmoid(self.layer3(x))
         return x
 
     def forward(self, x, *args):
