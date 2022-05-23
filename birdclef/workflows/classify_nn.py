@@ -1,7 +1,11 @@
 import datetime
 import json
 import shutil
-from importlib.metadata import version
+
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
 from pathlib import Path
 
 import click
