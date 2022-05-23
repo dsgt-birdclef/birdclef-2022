@@ -39,12 +39,12 @@ def evaluation():
 @click.option(
     "--checkpoint",
     type=click.Path(exists=True, dir_okay=False),
-    default=Path("../../data/processed/model/2022-05-17-v7/embedding.ckpt"),
+    default=Path("data/processed/model/2022-05-17-v7/embedding.ckpt"),
 )
 @click.option(
     "--parquet",
     type=click.Path(exists=True, dir_okay=False),
-    default=Path("../../data/processed/2022-04-03-motif-consolidated.parquet"),
+    default=Path("data/processed/2022-04-03-motif-consolidated.parquet"),
 )
 @click.option(
     "--outputdir",
@@ -54,7 +54,7 @@ def evaluation():
 @click.option(
     "--root",
     type=click.Path(exists=True, dir_okay=True),
-    default=Path("../../data/raw/birdclef-2022"),
+    default=Path("data/raw/birdclef-2022"),
 )
 @click.option("--dim", default=512)
 @click.option("--name", default=date.today())
@@ -115,13 +115,13 @@ def main(intra, inter, checkpoint, parquet, outputdir, root, dim, name):
     plt.savefig(store, bbox_inches="tight")
     plt.clf()
     print("Created Interclass Figures")
+
     # Create html file with Jinja2 template
-    # env = Environment(
-    #     loader=PackageLoader(templates),
-    #     # autoescape=select_autoescape()
-    # )
-    # template = env.get_template('index.html.j2');
-    template = pkg_resources.read_text(templates, "index.html.j2")
+    env = Environment(
+        loader=PackageLoader("birdclef.workflows", "templates"),
+        autoescape=select_autoescape(),
+    )
+    template = env.get_template("index.html.j2")
     output = template.render(
         intraspecies=intra,
         interspecies=inter,
