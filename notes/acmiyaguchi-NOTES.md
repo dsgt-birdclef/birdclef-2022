@@ -467,3 +467,34 @@ python -m birdclef.workflows.classify_nn predict `
 
 [mixup]: https://github.com/fastai/fastai_old/blob/488e4fd2939bbe34c0fd0c3867884a9c45877cb9/fastai/callbacks/mixup.py
 [multi-label]: https://machinelearningmastery.com/multi-label-classification-with-deep-learning/
+
+## working notes stuff
+
+```dot
+    digraph G {
+        subgraph cluster_birdclef {
+            label="birdclef-2022"
+            train[label="training audio", shape=rect]
+        }
+
+        subgraph cluster_motif {
+            label="motif mining"
+            pi[label="SiMPle profile index", shape=rect]
+        }
+        subgraph cluster_embedding {
+            label="embedding"
+            triplets[label="triplet dataloader", shape=rect]
+            subgraph cluster_model {
+                label="model"
+                mels[label="spectrogram layer", shape=rect]
+                tilenet[shape=rect]
+            }
+            triplets -> mels
+            mels -> tilenet
+
+        }
+        train -> pi
+        pi -> triplets
+        train -> triplets
+    }
+```
