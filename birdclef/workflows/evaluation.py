@@ -11,6 +11,8 @@ import torch
 from jinja2 import Environment, PackageLoader, select_autoescape
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 from birdclef.models.embedding.tilenet import TileNet
@@ -24,38 +26,62 @@ def evaluation():
     pass
 
 
-def intra_cluster(base_path, root, df, model, intra):
+def load_motif_audio(root, df, species, num_sample=50):
     data = []
-    for row in df[df.species == intra].sample(50).itertuples():
-        try:
-            offset = compute_offset(
-                row.motif_0,
-                row.matrix_profile_window,
-                row.duration_cens,
-                row.duration_seconds,
-            )[0]
-        except:
-            offset = 0
-        y = load_audio(root / row.source_name, offset, 5)
-        data.append(y)
+    labels = []
+    for specie in species:
+        for row in df[df.species == specie].sample(num_sample).itertuples():
+            try:
+                offset = compute_offset(
+                    row.motif_0,
+                    row.matrix_profile_window,
+                    row.duration_cens,
+                    row.duration_seconds,
+                )[0]
+            except:
+                offset = 0
+            y = load_audio(root / row.source_name, offset, 5)
+            data.append(y)
+            labels.append(row.species)
+    return data, labels
+
+
+def plot_waveform(data, name, base_path):
+    plt.plot(data)
+    plt.savefig(f"{base_path}/{name}")
+    plt.clf()
+    sf.write(
+        base_path / name.replace(".png", ".ogg"),
+        data,
+        32000,
+        format="ogg",
+        subtype="vorbis",
+    )
+
+
+def model_logistic_regression(root, df, model, species, num_sample=100, components=32):
+    data, labels = load_motif_audio(root, df, species, num_sample=num_sample)
+    emb = model(torch.from_numpy(np.array(data))).detach().numpy()
+    g = PCA(n_components=components).fit_transform(emb) if components else emb
+    le = LabelEncoder().fit(labels)
+    lr = LogisticRegression(max_iter=1000)
+    X_train, X_test, y_train, y_test = train_test_split(
+        g, le.transform(labels), test_size=0.33
+    )
+    lr.fit(X_train, y_train)
+    return lr.score(X_test, y_test)
+
+
+def intra_cluster(base_path, root, df, model, intra):
+    data, _ = load_motif_audio(root, df, [intra], num_sample=50)
 
     figures = []
 
     # plot the waveform of the first data point
     for i in range(3):
-        z = data[i]
-        plt.plot(z)
         name = f"{intra}_intra_waveform_{i}.png"
+        plot_waveform(data[i], name, base_path)
         figures.append(name)
-        plt.savefig(f"{base_path}/{name}")
-        plt.clf()
-        sf.write(
-            base_path / name.replace(".png", ".ogg"),
-            z,
-            32000,
-            format="ogg",
-            subtype="vorbis",
-        )
 
     # plot the embedding in an even lower dimension
     emb = model(torch.from_numpy(np.array(data))).detach().numpy()
@@ -78,38 +104,13 @@ def intra_cluster(base_path, root, df, model, intra):
 
 
 def inter_cluster(base_path, root, df, model, species: "list[str]", num_sample=300):
-    data = []
-    labels = []
-    for specie in species:
-        for row in df[df.species == specie].sample(num_sample).itertuples():
-            try:
-                offset = compute_offset(
-                    row.motif_0,
-                    row.matrix_profile_window,
-                    row.duration_cens,
-                    row.duration_seconds,
-                )[0]
-            except:
-                offset = 0
-            y = load_audio(root / row.source_name, offset, 5)
-            data.append(y)
-            labels.append(row.species)
+    data, labels = load_motif_audio(root, df, species, num_sample=num_sample)
 
     figures = []
     for i in range(3):
-        z = data[i]
-        plt.plot(z)
         name = f"inter_waveform_{i}.png"
+        plot_waveform(data[i], name, base_path)
         figures.append(name)
-        plt.savefig(f"{base_path}/{name}")
-        plt.clf()
-        sf.write(
-            base_path / name.replace(".png", ".ogg"),
-            z,
-            32000,
-            format="ogg",
-            subtype="vorbis",
-        )
 
     emb = model(torch.from_numpy(np.array(data))).detach().numpy()
     le = LabelEncoder().fit(labels)
