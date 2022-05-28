@@ -64,7 +64,7 @@ def model_logistic_regression(root, df, model, species, num_sample=100, componen
     emb = model(torch.from_numpy(np.array(data))).detach().numpy()
     g = PCA(n_components=components).fit_transform(emb) if components else emb
     le = LabelEncoder().fit(labels)
-    lr = LogisticRegression(max_iter=1000)
+    lr = LogisticRegression(max_iter=5000)
     X_train, X_test, y_train, y_test = train_test_split(
         g, le.transform(labels), test_size=0.33
     )
