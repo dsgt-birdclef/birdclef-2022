@@ -6,15 +6,28 @@
 </head>
 <body>
     <h2>Intraclass Clustering and Comparison</h2>
-        {% for img in intrafigures %}
-        <h3>{{intraspecies}}</h3>
-        <img src="{{ img }}"/>
-    <!--        <audio controls><source src=/></audio>-->
+    {% for specie in species %}
+        <h3>{{ specie }}</h3>
+        {% for img in intra_figures if specie in img %}
+        <div>
+            <img src="{{ img }}"/>
+            {% if "waveform" in img %}
+            <audio controls><source src="{{ img.replace('.png', '.ogg')}}"></audio>
+            {% endif %}
+        </div>
         {% endfor %}
+    {% endfor %}
 
     <h2>Interclass Clustering and Comparison</h2>
-    <h3>{{interspecies}}</h3>
-    <img src = "{{ interfigures }}" />
+    <h3>{{ ", ".join(species) }}</h3>
+    {% for img in inter_figures %}
+        <div>
+            <img src="{{ img }}"/>
+            {% if "waveform" in img %}
+            <audio controls><source src="{{ img.replace('.png', '.ogg')}}"></audio>
+            {% endif %}
+        </div>
+    {% endfor %}
 
 </body>
 </html>
