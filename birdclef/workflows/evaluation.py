@@ -116,6 +116,7 @@ def inter_cluster(base_path, root, df, model, species: "list[str]", num_sample=3
     le = LabelEncoder().fit(labels)
 
     g = PCA(n_components=2).fit_transform(emb)
+    plt.title(f"Motifs of {', '.join(species)} in embedding space")
     plt.scatter(g[:, 0], g[:, 1], c=le.transform(labels))
     name = f"interclass.png"
     plt.savefig(f"{base_path}/{name}")
