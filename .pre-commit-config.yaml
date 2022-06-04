@@ -25,4 +25,4 @@ repos:
     hooks:
       - id: codespell
         args: [--ignore-words=.dictionary.txt]
-        exclude: ^notebooks
+        exclude: ^(notebooks|notes/working-notes)
