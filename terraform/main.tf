@@ -1,6 +1,7 @@
 terraform {
   backend "gcs" {
     bucket = "birdclef-2022-tfstate"
+    prefix = "birdclef-2022"
   }
 }
 
