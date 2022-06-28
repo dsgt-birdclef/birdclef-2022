@@ -10,3 +10,4 @@ lightning_logs
 sqlite*
 .terraform
 build/
+*.zip

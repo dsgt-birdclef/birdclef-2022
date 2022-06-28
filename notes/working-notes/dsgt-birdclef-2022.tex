@@ -156,40 +156,41 @@ We initially performed our motif mining using the CEN parameters, following clos
 %% https://sketchviz.com/flowcharts-in-graphviz
 \begin{figure}[hbt!]
 \centering
-\begin{tikzpicture}[>=latex',scale=0.7]
-\begin{dot2tex}[dot,tikz,codeonly]
-    digraph G {
-        rankdir=LR;
-        subgraph cluster_birdclef {
-            label="birdclef-2022"
-            train[label="training audio", shape=rect]
-        }
+% \begin{tikzpicture}[>=latex',scale=0.7]
+% \begin{dot2tex}[dot,tikz,codeonly]
+%     digraph G {
+%         rankdir=LR;
+%         subgraph cluster_birdclef {
+%             label="birdclef-2022"
+%             train[label="training audio", shape=rect]
+%         }
 
-        subgraph cluster_motif {
-            label="motif mining"
-            pi[label="profile index", shape=rect]
-        }
-        subgraph cluster_embedding {
-            label="embedding"
-            subgraph cluster_dataloader {
-                label="dataloader"
-                triplets[shape=rect]
-            }
-            subgraph cluster_model {
-                label="model"
-                mels[label="spectrogram", shape=rect]
-                tilenet[shape=rect]
-            }
-            triplets -> mels
-            mels -> tilenet
+%         subgraph cluster_motif {
+%             label="motif mining"
+%             pi[label="profile index", shape=rect]
+%         }
+%         subgraph cluster_embedding {
+%             label="embedding"
+%             subgraph cluster_dataloader {
+%                 label="dataloader"
+%                 triplets[shape=rect]
+%             }
+%             subgraph cluster_model {
+%                 label="model"
+%                 mels[label="spectrogram", shape=rect]
+%                 tilenet[shape=rect]
+%             }
+%             triplets -> mels
+%             mels -> tilenet
 
-        }
-        train -> pi
-        pi -> triplets
-        train -> triplets
-    }
-\end{dot2tex}
-\end{tikzpicture}
+%         }
+%         train -> pi
+%         pi -> triplets
+%         train -> triplets
+%     }
+% \end{dot2tex}
+% \end{tikzpicture}
+\includegraphics[width=\textwidth]{figures/flow-diagram.png}
 \caption{Flow diagram of the constituent pieces of the birdcall embedding.}
 \end{figure}
 

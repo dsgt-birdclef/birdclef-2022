@@ -1,0 +1,142 @@
+\begin{thebibliography}{11}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\href}[2]{#2}
+\providecommand{\path}[1]{#1}
+\providecommand{\DOIprefix}{doi:}
+\providecommand{\ArXivprefix}{arXiv:}
+\providecommand{\URLprefix}{URL: }
+\providecommand{\Pubmedprefix}{pmid:}
+\providecommand{\doi}[1]{\href{http://dx.doi.org/#1}{\path{#1}}}
+\providecommand{\Pubmed}[1]{\href{pmid:#1}{\path{#1}}}
+\providecommand{\bibinfo}[2]{#2}
+\ifx\xfnm\relax \def\xfnm[#1]{\unskip,\space#1}\fi
+%Type = Article
+\bibitem[{Kahl et~al.(2022)Kahl, Navine, Denton, Klinck, Hart, Glotin,
+  Go{\"e}au, Vellinga, Planqu{\'e}, and Joly}]{kahl2022overview}
+\bibinfo{author}{S.~Kahl}, \bibinfo{author}{A.~Navine},
+  \bibinfo{author}{T.~Denton}, \bibinfo{author}{H.~Klinck},
+  \bibinfo{author}{P.~Hart}, \bibinfo{author}{H.~Glotin},
+  \bibinfo{author}{H.~Go{\"e}au}, \bibinfo{author}{W.-P. Vellinga},
+  \bibinfo{author}{R.~Planqu{\'e}}, \bibinfo{author}{A.~Joly},
+\newblock \bibinfo{title}{Overview of birdclef 2022: Endangered bird species
+  recognition in soundscape recordings},
+\newblock \bibinfo{journal}{Working Notes of CLEF 2022 - Conference and Labs of
+  the Evaluation Forum}  (\bibinfo{year}{2022}).
+%Type = Inproceedings
+\bibitem[{Joly et~al.(2022)Joly, Go{\"e}au, Kahl, Picek, Lorieul, Cole, Deneu,
+  Servajean, Durso, Bolon, Glotin, Planqué, Vellinga, Navine, Klinck, Denton,
+  Eggel, Bonnet, \v{S}ulc, and Müller}]{lifeclef2022}
+\bibinfo{author}{A.~Joly}, \bibinfo{author}{H.~Go{\"e}au},
+  \bibinfo{author}{S.~Kahl}, \bibinfo{author}{L.~Picek},
+  \bibinfo{author}{T.~Lorieul}, \bibinfo{author}{E.~Cole},
+  \bibinfo{author}{B.~Deneu}, \bibinfo{author}{M.~Servajean},
+  \bibinfo{author}{A.~Durso}, \bibinfo{author}{I.~Bolon},
+  \bibinfo{author}{H.~Glotin}, \bibinfo{author}{R.~Planqué},
+  \bibinfo{author}{W.-P. Vellinga}, \bibinfo{author}{A.~Navine},
+  \bibinfo{author}{H.~Klinck}, \bibinfo{author}{T.~Denton},
+  \bibinfo{author}{I.~Eggel}, \bibinfo{author}{P.~Bonnet},
+  \bibinfo{author}{M.~\v{S}ulc}, \bibinfo{author}{H.~Müller},
+\newblock \bibinfo{title}{Overview of lifeclef 2022: an evaluation of
+  machine-learning based species identification and species distribution
+  prediction},
+\newblock in: \bibinfo{booktitle}{International Conference of the
+  Cross-Language Evaluation Forum for European Languages},
+  \bibinfo{organization}{Springer}, \bibinfo{year}{2022}.
+%Type = Misc
+\bibitem[{Xeno-canto(2022)}]{xeno-canto}
+\bibinfo{author}{Xeno-canto}, \bibinfo{title}{Xeno-canto: Sharing bird sounds
+  from around the world}, \bibinfo{year}{2022}. \URLprefix
+  \url{https://xeno-canto.org}.
+%Type = Article
+\bibitem[{Silva et~al.(2018)Silva, Yeh, Zhu, Batista, and
+  Keogh}]{silva2018fast}
+\bibinfo{author}{D.~F. Silva}, \bibinfo{author}{C.-C.~M. Yeh},
+  \bibinfo{author}{Y.~Zhu}, \bibinfo{author}{G.~E. Batista},
+  \bibinfo{author}{E.~Keogh},
+\newblock \bibinfo{title}{Fast similarity matrix profile for music analysis and
+  exploration},
+\newblock \bibinfo{journal}{IEEE Transactions on Multimedia}
+  \bibinfo{volume}{21} (\bibinfo{year}{2018}) \bibinfo{pages}{29--38}.
+%Type = Inproceedings
+\bibitem[{Jean et~al.(2019)Jean, Wang, Samar, Azzari, Lobell, and
+  Ermon}]{jean2019tile2vec}
+\bibinfo{author}{N.~Jean}, \bibinfo{author}{S.~Wang},
+  \bibinfo{author}{A.~Samar}, \bibinfo{author}{G.~Azzari},
+  \bibinfo{author}{D.~Lobell}, \bibinfo{author}{S.~Ermon},
+\newblock \bibinfo{title}{Tile2vec: Unsupervised representation learning for
+  spatially distributed data},
+\newblock in: \bibinfo{booktitle}{Proceedings of the AAAI Conference on
+  Artificial Intelligence}, volume~\bibinfo{volume}{33}, \bibinfo{year}{2019},
+  pp. \bibinfo{pages}{3967--3974}.
+%Type = Inproceedings
+\bibitem[{McFee et~al.(2015)McFee, Raffel, Liang, Ellis, McVicar, Battenberg,
+  and Nieto}]{librosa}
+\bibinfo{author}{B.~McFee}, \bibinfo{author}{C.~Raffel},
+  \bibinfo{author}{D.~Liang}, \bibinfo{author}{D.~P. Ellis},
+  \bibinfo{author}{M.~McVicar}, \bibinfo{author}{E.~Battenberg},
+  \bibinfo{author}{O.~Nieto},
+\newblock \bibinfo{title}{librosa: Audio and music signal analysis in python},
+\newblock in: \bibinfo{booktitle}{Proceedings of the 14th python in science
+  conference}, volume~\bibinfo{volume}{8}, \bibinfo{year}{2015}.
+%Type = Article
+\bibitem[{{Cheuk} et~al.(2020){Cheuk}, {Anderson}, {Agres}, and
+  {Herremans}}]{nn-audio}
+\bibinfo{author}{K.~W. {Cheuk}}, \bibinfo{author}{H.~{Anderson}},
+  \bibinfo{author}{K.~{Agres}}, \bibinfo{author}{D.~{Herremans}},
+\newblock \bibinfo{title}{nnaudio: An on-the-fly gpu audio to spectrogram
+  conversion toolbox using 1d convolutional neural networks},
+\newblock \bibinfo{journal}{IEEE Access} \bibinfo{volume}{8}
+  (\bibinfo{year}{2020}) \bibinfo{pages}{161981--162003}.
+  \DOIprefix\doi{10.1109/ACCESS.2020.3019084}.
+%Type = Misc
+\bibitem[{Jordal et~al.(2022)Jordal, Tamazian, Chourdakis, Angonin, askskro,
+  Karpov, Sarioglu, kvilouras, Çoban, Mirus, Lee, Choi, MarvinLvn,
+  SolomidHero, and Alumäe}]{audiomentations}
+\bibinfo{author}{I.~Jordal}, \bibinfo{author}{A.~Tamazian},
+  \bibinfo{author}{E.~T. Chourdakis}, \bibinfo{author}{C.~Angonin},
+  \bibinfo{author}{askskro}, \bibinfo{author}{N.~Karpov},
+  \bibinfo{author}{O.~Sarioglu}, \bibinfo{author}{kvilouras},
+  \bibinfo{author}{E.~B. Çoban}, \bibinfo{author}{F.~Mirus},
+  \bibinfo{author}{J.-Y. Lee}, \bibinfo{author}{K.~Choi},
+  \bibinfo{author}{MarvinLvn}, \bibinfo{author}{SolomidHero},
+  \bibinfo{author}{T.~Alumäe}, \bibinfo{title}{iver56/audiomentations:
+  v0.25.0}, \bibinfo{year}{2022}. \URLprefix
+  \url{https://doi.org/10.5281/zenodo.6594177}.
+  \DOIprefix\doi{10.5281/zenodo.6594177}.
+%Type = Article
+\bibitem[{Ke et~al.(2017)Ke, Meng, Finley, Wang, Chen, Ma, Ye, and
+  Liu}]{ke2017lightgbm}
+\bibinfo{author}{G.~Ke}, \bibinfo{author}{Q.~Meng},
+  \bibinfo{author}{T.~Finley}, \bibinfo{author}{T.~Wang},
+  \bibinfo{author}{W.~Chen}, \bibinfo{author}{W.~Ma}, \bibinfo{author}{Q.~Ye},
+  \bibinfo{author}{T.-Y. Liu},
+\newblock \bibinfo{title}{Lightgbm: A highly efficient gradient boosting
+  decision tree},
+\newblock \bibinfo{journal}{Advances in neural information processing systems}
+  \bibinfo{volume}{30} (\bibinfo{year}{2017}) \bibinfo{pages}{3146--3154}.
+%Type = Misc
+\bibitem[{Jordal et~al.(2022)Jordal, Nishi, BREDIN, Lata, Blum, Manuel, akash
+  raj, Choi, Żelasko, amiasato, Quatra, Schmidbauer, and
+  FrenchKrab}]{pytorch-audiomentations}
+\bibinfo{author}{I.~Jordal}, \bibinfo{author}{K.~Nishi},
+  \bibinfo{author}{H.~BREDIN}, \bibinfo{author}{F.~Lata},
+  \bibinfo{author}{H.~C. Blum}, \bibinfo{author}{P.~Manuel},
+  \bibinfo{author}{akash raj}, \bibinfo{author}{K.~Choi},
+  \bibinfo{author}{P.~Żelasko}, \bibinfo{author}{amiasato},
+  \bibinfo{author}{M.~L. Quatra}, \bibinfo{author}{E.~Schmidbauer},
+  \bibinfo{author}{FrenchKrab},
+  \bibinfo{title}{asteroid-team/torch-audiomentations: v0.10.1},
+  \bibinfo{year}{2022}. \URLprefix
+  \url{https://doi.org/10.5281/zenodo.6381721}.
+  \DOIprefix\doi{10.5281/zenodo.6381721}.
+%Type = Article
+\bibitem[{Zhang et~al.(2017)Zhang, Cisse, Dauphin, and
+  Lopez-Paz}]{zhang2017mixup}
+\bibinfo{author}{H.~Zhang}, \bibinfo{author}{M.~Cisse}, \bibinfo{author}{Y.~N.
+  Dauphin}, \bibinfo{author}{D.~Lopez-Paz},
+\newblock \bibinfo{title}{mixup: Beyond empirical risk minimization},
+\newblock \bibinfo{journal}{arXiv preprint arXiv:1710.09412}
+  (\bibinfo{year}{2017}).
+
+\end{thebibliography}
