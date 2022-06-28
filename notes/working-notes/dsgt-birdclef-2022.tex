@@ -49,17 +49,20 @@ email=acmiyaguchi@gatech.edu,
 url=https://acmiyaguchi.me,
 ]
 \author[1]{Jiangyue Yu}[
-email=jyu478@gatech.edu
+email=jyu478@gatech.edu,
+orcid=0000-0003-4466-9913
 ]
 \author[1]{Bryan Cheungvivatpant}[
-email=bcheung0@gatech.edu
+email=bcheung0@gatech.edu,
+orcid=0000-0002-2030-7494
 ]
 \author[1]{Dakota Dudley}[
 orcid=0000-0001-8352-0391,
 email=dakotadudley13@gatech.edu,
 ]
 \author[1]{Aniketh Swain}[
-email=aswain9@gatech.edu
+email=aswain9@gatech.edu,
+orcid=0000-0001-8329-9682
 ]
 
 \address[1]{Georgia Institute of Technology, North Ave NW, Atlanta, GA 30332}
@@ -90,9 +93,9 @@ email=aswain9@gatech.edu
 
 \section{Introduction}
 
-The BirdCLEF 2022 challenge involves identifying species of native Hawaiian birds from soundscape recordings. The training dataset comprises 14.8 thousand recordings totaling over 190 hours from Xeno-canto \cite{xeno-canto} of varying length and quality. The specific task involves predicting the presence of a list of 29 bird species in 5-second non-overlapping windows of 1-minute soundscape recordings. The recordings are Ogg Vorbis audio files at a sample rate of 32khz. The Xeno-canto training examples are labeled by species but not at 5-second intervals per the challenge's primary task. Therefore, they may contain both ambient noise and birdcalls from other species.
+The BirdCLEF 2022 challenge \cite{kahl2022overview} \cite{lifeclef2022} involves identifying species of native Hawaiian birds from soundscape recordings. The training dataset comprises 14.8 thousand recordings totaling over 190 hours from Xeno-canto \cite{xeno-canto} of varying length and quality. The task involves predicting the presence of 29 bird species in non-overlapping 5-second windows of 1-minute soundscape recordings. The recordings are Ogg Vorbis audio files encoded at a 32khz sample rate. The Xeno-canto training examples are labeled by species but not at 5-second intervals per the challenge's task. Therefore, they may contain both ambient noise and birdcalls from other species.
 
-We focus our efforts on unsupervised methods to tackle the lack of concrete labels for the multi-label classification problem. First, we experiment with motif mining algorithms to identify windows of audio that contain birdcalls as an unsupervised process for generating labels. The motif mining process also provides metadata used to train downstream models. Additionally, instead of training a classification model directly from training examples, we choose to build an embedding that captures similarities between birdcalls across all training examples. We finally train classification models using the embedding model to reduce the dimensionality of the original data.
+We focus our efforts on unsupervised methods to address the lack of concrete labels for the multi-label classification problem. First, we experiment with motif mining algorithms to identify windows of audio that contain birdcalls as an unsupervised process for generating labels. The motif mining process also provides metadata used to train downstream models. Additionally, instead of training a classification model directly from training examples, we choose to build an embedding that captures similarities between birdcalls across all training examples. We finally train classification models using the embedding model to reduce the dimensionality of the original data.
 
 \section{Motif Mining}
 
@@ -101,7 +104,7 @@ We utilize a motif mining algorithm called SiMPle \cite{silva2018fast} to extrac
 \begin{figure}[h]
 \includegraphics[width=\textwidth]{figures/XC144892-spectrogram-mp.png}
 \caption{
-    Spectrograms show frequency components of audio transformed via STFT. We apply SiMPLe to obtain a matrix profile that summarizes the distance to the nearest neighbor for all time-slices in the spectrogram. Spectrogram parameterization affects the quality of the matrix profile summary.
+    Spectrograms show frequency components of audio transformed via STFT. We apply SiMPLe to obtain a matrix profile that summarizes the distance to the nearest neighbor for all time-slices in the spectrogram. Spectrogram parameterization affects the quality of the matrix profile summary. The Mel-frequency spectogram renders log-scaled filter banks to approximate human hearing response, while the CENS spectrogram renders filter banks that map to a chromatic scale.
 }
 \label{fig:spectrogram}
 \end{figure}
@@ -121,13 +124,13 @@ An embedding maps data from one space into a lower-dimensional space while maint
 \end{equation}
 
 
-We hypothesize that we can learn an embedding by forming triplets using windows of audio that have similar spectral qualities. We utilize the SiMPLe index of the audio spectrogram to determine the neighborhood of any given window of audio within a track. The Tile2Vec model is a modified ResNet-18 convolutional neural network -- we make further modifications to generate spectrograms in the correct shape as the first layer in the model.
+We hypothesize that we can learn an embedding by forming triplets using windows of audio with similar spectral qualities. We utilize the SiMPLe index of the audio spectrogram to determine the neighborhood of any given window of audio within a track. The Tile2Vec model is a modified ResNet-18 convolutional neural network -- we make further modifications to generate spectrograms in the correct shape as the first layer in the model.
 
 \section{Experiments}
 
 \subsection{Motif Mining Details}
 
-We begin by extracting the motifs and discords of the entire training dataset. However, this process is computationally intensive because it requires streaming the entire audio dataset, computing the spectrogram via STFT, and computing the matrix profile. Therefore, we pre-compute the matrix profile and index profile for offline processing. We use librosa \cite{librosa} for audio loading and transformation and implement a NumPy implementation of the SiMPle algorithm to facilitate usage in our processing pipeline. \footnote{Implementation at \
+We begin by extracting the motifs and discords of the entire training dataset. However, this process is computationally intensive because it requires streaming the entire audio dataset, generating the spectrogram via STFT, and computing the matrix profile. Therefore, we pre-compute the matrix profile and index profile for offline processing. We use librosa \cite{librosa} for audio loading and transformation and implement a NumPy implementation of the SiMPle algorithm to facilitate usage in our processing pipeline. \footnote{Implementation at \
 \href{https://github.com/acmiyaguchi/simple-fast-python}{github.com/acmiyaguchi/simple-fast-python}}
 
 We use chroma energy normalized (CEN) and Mel-scaled spectrograms. We generate CEN spectrograms at ten samples per second using the default parameters in librosa, with a 50 sample window for motif mining purposes and the Mel-scaled spectrograms using an FFT window of 2048, a hop length of 80 samples, and 16 Mel bands with a 400 sample window.
@@ -143,7 +146,7 @@ CEN                & 287ms          & (12, 292)  & 3504   & 50            & 8.85
 \label{tab:spectrogram}
 \end{table}
 
-As per figure \ref{fig:spectrogram}, we note that the observed quality of a spectrogram and the resulting matrix profile varies depending on the algorithm and parameters used. We can clearly distinguish the chirps in the high-frequency ranges in the Mel spectrogram, with obvious discords occurring in the same time intervals. We are presented with a lower resolution spectrogram with CEN because it is aligned by chroma instead, which does not delineate between the bird call and the background noise.
+As per figure \ref{fig:spectrogram}, we note that the observed quality of a spectrogram and the resulting matrix profile varies depending on the algorithm and parameters used. We can clearly distinguish the chirps in the high-frequency ranges in the Mel spectrogram, with obvious discords occurring in the same time intervals. We are presented with a lower resolution spectrogram with CEN because it is aligned by chroma instead, which does not delineate between the bird call and the background noise as clearly.
 
 We initially performed our motif mining using the CEN parameters, following closely with the SiMPLe cover song extraction experiment. We found that the lower resolution of the CEN spectrogram representation allowed us to process all training examples and store the primary representation on disk, as per table \ref{tab:spectrogram}. Although noisy, the representation did extract bird calls as the primary motif, although lack of domain knowledge prevented us from quantifying the quality of these labels. As a result, some extracted motifs are background noise or human voices.
 
@@ -224,11 +227,11 @@ We built two separate data loaders for this task — the first data loader pre-c
 \end{algorithm}
 
 
-The first approach is untenable for an online training procedure because it naively generated motif triplets which required upwards of $3N$ disk reads. In addition, we noticed that running the data loading procedure online would cause underutilization between the CPU and GPU due to the loading bottleneck. By storing $5e5$ NumPy array triplets to disk, we could fully utilize the GPU at the cost of disk space, going from the original 6GB of audio data to 135GB for the pre-computed triplet data. The second approach required no additional memory because it took on an iterable approach to creating triplets. It has a different distributional semantic from the first since it includes all audio windows instead of just the track motifs. We also do not address class imbalances because online undersampling is difficult. We need further preprocessing to determine the total number and locations of birdcalls per class.
+The first approach is untenable for an online training procedure because it naively generated motif triplets using upwards of $3N$ disk reads. In addition, we noticed that running the data loading procedure online would cause underutilization between the CPU and GPU due to the loading bottleneck. By storing $5e5$ NumPy array triplets to disk, we could fully utilize the GPU at the cost of disk space, going from the original 6GB of audio data to 135GB for the pre-computed triplet data. The second approach required no additional memory because it took on an iterable approach to creating triplets. It has a different distributional semantic from the first since it includes all audio windows instead of just the track motifs. We also do not address class imbalances because online undersampling is difficult. We need further preprocessing to determine the total number and locations of birdcalls per class.
 
 We apply a random gain of $[-20, 20]$ dB, Gaussian random noise between $[-5, 40]$ dB, and pitch shift between $[-4, 4]$ semitones using the audiomentations library \cite{audiomentations}. We note that augmentation can become a bottleneck in the data loading process. Instead of applying it to the entire triplet, it suffices to apply it to just the motif pairs before triplet formation. We consider torch-audiomentations but had poor performance due to difficulties applying the correct device to torch tensors inside the data loader.
 
-We validate the embedding learned on the iterable data loader by training a classifier on motifs transformed into the embedding space. We chose a subset of three species: \texttt{brnowl}, \texttt{skylar}, and \texttt{houfin}. These species are common and have several hundred audio tracks available. We generate a training dataset comprised of the motif of each track and cross-validate a logistic regression model using model accuracy on species accuracy. We sample $k=300$ motifs for ten models and report the mean and standard deviation of the accuracy on embedding models that vary in the output size.
+We validate the embedding learned on the iterable data loader by training a classifier on motifs transformed into the embedding space. We chose a subset of three species: \texttt{brnowl}, \texttt{skylar}, and \texttt{houfin}. These are common species with several hundred audio tracks available. We generate a training dataset comprised of the motif of each track and cross-validate a logistic regression model using model accuracy on species accuracy. We sample $k=300$ motifs for ten models and report the mean and standard deviation of the accuracy on embedding models that vary in the output size.
 
 \begin{figure}[h]
     \centering
@@ -253,7 +256,7 @@ dimension & accuracy (n=10) \\ \hline
 
 \subsection{Classifier Performance}
 
-We train a classifier using the embedding model as a preprocessing step. The first classifier trains a gradient-boosted decision tree (GBDT) via LightGBM \cite{ke2017lightgbm}. It uses a MultiOutputClassifer to create a model per task to suit the multi-label classification task using the default parameters of the LightGBM classifier. Next, we apply a similar set of augmentation to the embedding model, with a random gain of $[-20, 20]$ dB, pitch shift between $[-4, 4]$ semitones, time shift between $[-0.1, 0.1]\%$ of the window's length, and colored noise between $[-3, 30]$ dB and $[-2, 2]$ frequency power decay using the PyTorch-audiomentations library \cite{pytorch-audiomentations}. We also train a multi-layer perceptron (MLP) to perform multi-label classification directly using a binary cross-entropy loss. The loss function allows us to implement mixup \cite{zhang2017mixup} during data loading mini-batches as an augmentation process.
+We train a classifier using the embedding model as a preprocessing step. The first classifier trains a gradient-boosted decision tree (GBDT) via LightGBM \cite{ke2017lightgbm}. It uses a MultiOutputClassifer to create a model per task to suit the multi-label classification task using the default parameters of the LightGBM classifier. Next, we apply a similar set of augmentation to the embedding model, with a random gain of $[-20, 20]$ dB, pitch shift between $[-4, 4]$ semitones, time shift between $[-10, 10]\%$ of the window's length, and colored noise between $[-3, 30]$ dB and $[-2, 2]$ frequency power decay using the PyTorch-audiomentations library \cite{pytorch-audiomentations}. We also train a multi-layer perceptron (MLP) to perform multi-label classification directly using a binary cross-entropy loss. The loss function allows us to implement mixup \cite{zhang2017mixup} during data loading mini-batches as an augmentation process.
 
 We experimented with using matrix profile join data as a feature in our classification model. We draw 64 motif samples from a set of training motifs and run each audio window in the testing task through a matrix profile against the training sample. We use the concatenation of the matrix profile join's min, median, and max as an additional feature in the model. Unfortunately, we found that the additional CPU overhead to run SiMPle far outweighed any marginal performance benefit to the model and was omitted in subsequent model iterations.
 
@@ -283,7 +286,7 @@ We implemented and experimented with the SiMPle motif mining algorithm, a modifi
 Our performance on the leaderboard was underwhelming, but we solved many engineering problems throughout the challenge with potential improvements for future BirdCLEF challenges.
 
 \begin{acknowledgments}
-Thanks to the Data Science @ Georgia Tech (DS@GT) officers for organizing and publicizing recruitment for the DS@GT Kaggle competition team.
+Thanks to the Data Science @ Georgia Tech (DS@GT) officers for organizing and publicizing recruitment for the DS@GT Kaggle competition team, in particular Pulak Agarwal and Krishi Manek.
 \end{acknowledgments}
 
 \bibliography{dsgt-birdclef-2022}
